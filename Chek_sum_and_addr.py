@@ -22,10 +22,10 @@ class data_packet(object):
 
         self.CRC = CRC16().calculate(data)
 
-        self.BIN = pack('B', self.ADDR)
-        self.BIN = self.BIN + pack('B', len(data))
+        self.BIN = 'Address: '.encode() + pack('B', self.ADDR)
+        self.BIN = self.BIN + 'Length: '.encode() + pack('B', len(data))
         self.BIN = self.BIN + data
-        self.BIN = self.BIN + pack('H', self.CRC)
+        self.BIN = self.BIN + 'CRC: '.encode() + pack('H', self.CRC)
 
         print(self.BIN)
 

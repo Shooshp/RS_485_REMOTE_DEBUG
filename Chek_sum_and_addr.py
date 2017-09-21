@@ -1,6 +1,5 @@
 from PyCRC.CRC16 import CRC16
-from PyCRC.CRCCCITT import CRCCCITT
-from struct import pack, unpack
+from struct import pack
 
 class data_packet(object):
     ADDR=0x00
@@ -10,7 +9,14 @@ class data_packet(object):
 BIN=bytearray()
 
 def calc_crc(self):
-    self.CRC=CRCCCITT().calculate(self.DTA)
+    self.CRC=CRC16().calculate(self.DTA)
+
+def pack_to_bin(self):
+    self.BIN=pack('B',self.ADDR)
+    sz=len(self.DTA)
+    self.BIN=self.BIN+pack('B',sz)
+    self.BIN=self.BIN+self.DTA.encode()
+    self.BIN=self.BIN+pack('H',self.CRC)
 
 def print_data(self):
     print('Мой адресс:',self.ADDR)
@@ -24,13 +30,6 @@ def print_data(self):
         if nl==5:
            print('')
         nl=0
-
-def pack_to_bin(self):
-    self.BIN=pack('B',self.ADDR)
-    sz=len(self.DTA)
-    self.BIN=self.BIN+pack('B',sz)
-    self.BIN=self.BIN+self.DTA.encode()
-    self.BIN=self.BIN+pack('H',self.CRC)
 
 pack0=data_packet()
 

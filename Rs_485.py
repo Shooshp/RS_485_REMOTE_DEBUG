@@ -42,6 +42,4 @@ class Rs485Communication(object):
         )
 
     def write_and_read(self, data):
-        self.rs485_port.write(self.packet(data))
-
-
+        self.rs485_port.write(self.packet.pack_data(data))

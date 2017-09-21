@@ -3,17 +3,13 @@ from struct import pack
 
 class data_packet(object):
 
-    DTA = ''
-    CRC = 0x00
-
-    BIN = bytearray()
-
     def __init__(self,
                  addr = 0x0,
                  crc_constant = 0xA001):
 
         self.ADDR = addr
         self.CRC_CONSTANT = crc_constant
+        self.BIN = bytearray()
 
     def pack_data(self, data):
         is_string = isinstance(data, str)
@@ -27,8 +23,10 @@ class data_packet(object):
         self.CRC = CRC16().calculate(data)
 
         self.BIN = pack('B', self.ADDR)
-        self.BIN = self.BIN+pack('B', len(self.DTA))
-        self.BIN = self.BIN + self.DTA.encode()
+        self.BIN = self.BIN + pack('B', len(data))
+        self.BIN = self.BIN + data
         self.BIN = self.BIN + pack('H', self.CRC)
+
+        print(self.BIN)
 
         return self.BIN

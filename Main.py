@@ -17,6 +17,8 @@ ser = serial.Serial(
     timeout=1
 )
 
+com = serial.Serial()
+
 counter = 0
 
 while 1:

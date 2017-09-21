@@ -2,6 +2,10 @@
   <dictionary name="ParSp">
     <words>
       <w>addr</w>
+      <w>baudrate</w>
+      <w>bytesize</w>
+      <w>gpio</w>
+      <w>stopbits</w>
     </words>
   </dictionary>
 </component>

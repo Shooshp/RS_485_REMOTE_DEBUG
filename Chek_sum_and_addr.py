@@ -2,40 +2,33 @@ from PyCRC.CRC16 import CRC16
 from struct import pack
 
 class data_packet(object):
-    ADDR=0x00
-    DTA=''
-    CRC=0x00
 
-BIN=bytearray()
+    DTA = ''
+    CRC = 0x00
 
-def calc_crc(self):
-    self.CRC=CRC16().calculate(self.DTA)
+    BIN = bytearray()
 
-def pack_to_bin(self):
-    self.BIN=pack('B',self.ADDR)
-    sz=len(self.DTA)
-    self.BIN=self.BIN+pack('B',sz)
-    self.BIN=self.BIN+self.DTA.encode()
-    self.BIN=self.BIN+pack('H',self.CRC)
+    def __init__(self,
+                 addr = 0x0,
+                 crc_constant = 0xA001):
 
-def print_data(self):
-    print('Мой адресс:',self.ADDR)
-    print('Мои данные:',self.DTA)
-    print('Размер данных',len(self.DTA))
-    print('Мой CRC16:',hex(self.CRC))
-    nl=0
-    for x in self.BIN:
-        print(hex(x),end='\t')
-        nl=nl+1
-        if nl==5:
-           print('')
-        nl=0
+        self.ADDR = addr
+        self.CRC_CONSTANT = crc_constant
 
-pack0=data_packet()
+    def pack_data(self, data):
+        is_string = isinstance(data, str)
+        is_bytes = isinstance(data, bytes)
 
-pack0.ADDR=0x5
-pack0.DTA=b'OLEG'.decode()
-pack0.calc_crc()
-pack0.pack_to_bin()
+        if not is_string and not is_bytes:
+            raise Exception("Please provide a string or a byte sequence as argument for calculation.")
 
-pack0.print_data()
+        CRC16().crc16_constant = self.CRC_CONSTANT
+
+        self.CRC = CRC16().calculate(data)
+
+        self.BIN = pack('B', self.ADDR)
+        self.BIN = self.BIN+pack('B', len(self.DTA))
+        self.BIN = self.BIN + self.DTA.encode()
+        self.BIN = self.BIN + pack('H', self.CRC)
+
+        return self.BIN

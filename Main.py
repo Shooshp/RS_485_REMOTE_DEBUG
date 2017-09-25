@@ -1,10 +1,11 @@
-import Rs_485
+import SerialCommunications
+from PowerSourceControl import PowerSource
 
-Power_Source = Rs_485.Rs485Communication(timeout=100, addr=0x55)
+RS485 = SerialCommunications.Communicator(timeout=100)
+VCC_INT = PowerSource(RS485, address=0x66)
 
 counter = 0
 
 while 1:
-    command = 'Write counter: %d ' % (counter)
-    Power_Source.write_and_read(command.encode())
+    VCC_INT.set_voltage(counter)
     counter += 1

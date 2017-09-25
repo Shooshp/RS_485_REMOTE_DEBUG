@@ -44,13 +44,13 @@ class Communicator(object):
 
         self.usleep = lambda x: time.sleep(x/1000000.0)
 
-    def WriteToSerial(self, data, address):
-        self.rs485_port.write(self.Enclose(data, address))
+    def write_to_serial(self, data, address):
+        self.rs485_port.write(self.enclose(data, address))
 
-    def ReadFromSerial(self):
+    def read_from_serial(self):
         self.rs485_port.read()
 
-    def Enclose(self, data, address):
+    def enclose(self, data, address):
         is_string = isinstance(data, str)
         is_bytes = isinstance(data, bytes)
 
@@ -67,16 +67,15 @@ class Communicator(object):
 
         return self.BUFFER_ARRAY
 
-    def ChainScan(self):
+    def chain_scan(self):
         for address in range(255):
-            self.WriteToSerial('Whois'.encode(), address)
+            self.write_to_serial('Whois'.encode(), address)
 
-    def WaitForAnAnswer(self):
+    def wait_for_an_answer(self):
         GPIO.output(self.EN_TX_PIN,0)
 
         for counter in range (100):
             self.BUFFER_ARRAY = self.rs485_port.readline()
-
 
             if not self.BUFFER_ARRAY:
                 self.usleep(10)

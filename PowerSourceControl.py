@@ -1,17 +1,15 @@
-from SerialCommunications import Communicator
-
 
 class PowerSource(object):
 
     def __init__(self,
-                 SerialPort=Communicator,
+                 serial_port,
                  address=0x0,
                  current_limit=0,
                  voltage_set=0,
                  alarm_fringe=0,
-                ):
+                 ):
 
-        self.SERIAL_PORT = SerialPort
+        self.SERIAL_PORT = serial_port
 
         self.ADDRESS = address
         self.CURRENT_LIMIT = current_limit
@@ -36,7 +34,7 @@ class PowerSource(object):
 
         self.ARRAY_TO_SEND = 'Set Voltage: '.encode() + str(self.VOLTAGE_SET).encode()
 
-        self.SERIAL_PORT.WriteToSerial(self.ARRAY_TO_SEND, self.ADDRESS)
+        self.SERIAL_PORT.write_to_serial(self.ARRAY_TO_SEND, self.ADDRESS)
 
     def set_current(self, value):
         is_int = isinstance(value, int)
@@ -54,5 +52,4 @@ class PowerSource(object):
 
         self.ARRAY_TO_SEND = 'Set Current: '.encode() + str(self.CURRENT_LIMIT).encode()
 
-        self.SERIAL_PORT.WriteToSerial(self.ARRAY_TO_SEND, self.ADDRESS)
-
+        self.SERIAL_PORT.write_to_serial(self.ARRAY_TO_SEND, self.ADDRESS)

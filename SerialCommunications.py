@@ -3,6 +3,7 @@ import time
 import RPi.GPIO as GPIO
 from PyCRC.CRC16 import CRC16
 
+
 class Communicator(object):
 
     def __init__(self,
@@ -61,7 +62,8 @@ class Communicator(object):
 
         self.BUFFER_ARRAY = 'Address: '.encode() + hex(address).encode()
         self.BUFFER_ARRAY = self.BUFFER_ARRAY + ' Command: '.encode() + data
-        self.BUFFER_ARRAY = self.BUFFER_ARRAY + ' CRC: '.encode() + hex(CRC16().calculate(self.BUFFER_ARRAY)).encode() + '\r\n'.encode()
+        self.BUFFER_ARRAY = self.BUFFER_ARRAY + ' CRC: '.encode() + hex(CRC16().calculate(self.BUFFER_ARRAY)).encode()
+        self.BUFFER_ARRAY = self.BUFFER_ARRAY + '\r\n'.encode()
 
         print(self.BUFFER_ARRAY)
 
@@ -72,21 +74,14 @@ class Communicator(object):
             self.write_to_serial('Whois'.encode(), address)
 
     def wait_for_an_answer(self):
-        GPIO.output(self.EN_TX_PIN,0)
+        GPIO.output(self.EN_TX_PIN, 0)
 
-        for counter in range (100):
+        for counter in range(100):
             self.BUFFER_ARRAY = self.rs485_port.readline()
 
             if not self.BUFFER_ARRAY:
                 self.usleep(10)
 
-        GPIO.output(self.EN_TX_PIN,1)
+        GPIO.output(self.EN_TX_PIN, 1)
 
         return self.BUFFER_ARRAY
-
-
-
-
-
-
-

@@ -35,7 +35,24 @@ class PowerSource(object):
         if self.VOLTAGE_SET < 0:
             self.VOLTAGE_SET = 0
 
-
         self.ARRAY_TO_SEND = 'Set Voltage: '.encode() + str(self.VOLTAGE_SET).encode()
 
-        self.SERIAL_PORT.write_to_serial(self.ARRAY_TO_SEND, self.ADDRESS)
+        self.SERIAL_PORT.WriteToSerial(self.ARRAY_TO_SEND, self.ADDRESS)
+
+    def set_current(self, value):
+        is_int = isinstance(value, int)
+
+        if not is_int:
+            raise Exception("Please provide integer value for set_current() function")
+
+        self.CURRENT_LIMIT = value
+
+        if self.CURRENT_LIMIT > 3000:
+            self.CURRENT_LIMIT = 3000
+
+        if self.CURRENT_LIMIT < 0:
+            self.CURRENT_LIMIT = 0
+
+        self.ARRAY_TO_SEND = 'Set Current: '.encode() + str(self.CURRENT_LIMIT).encode()
+
+        self.SERIAL_PORT.WriteToSerial(self.ARRAY_TO_SEND, self.ADDRESS)

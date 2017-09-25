@@ -6,6 +6,7 @@
       <w>bytesize</w>
       <w>gpio</w>
       <w>stopbits</w>
+      <w>usleep</w>
     </words>
   </dictionary>
 </component>

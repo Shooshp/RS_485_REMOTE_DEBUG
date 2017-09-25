@@ -1,5 +1,4 @@
 from SerialCommunications import Communicator
-from struct import pack
 
 
 class PowerSource(object):

@@ -2,8 +2,6 @@ import serial
 import time
 import RPi.GPIO as GPIO
 from PyCRC.CRC16 import CRC16
-from struct import pack
-
 
 class Communicator(object):
 
@@ -78,6 +76,7 @@ class Communicator(object):
 
         for counter in range (100):
             self.BUFFER_ARRAY = self.rs485_port.readline()
+
 
             if not self.BUFFER_ARRAY:
                 self.usleep(10)

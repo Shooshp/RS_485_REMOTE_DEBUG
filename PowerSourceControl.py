@@ -55,3 +55,4 @@ class PowerSource(object):
         self.ARRAY_TO_SEND = 'Set Current: '.encode() + str(self.CURRENT_LIMIT).encode()
 
         self.SERIAL_PORT.WriteToSerial(self.ARRAY_TO_SEND, self.ADDRESS)
+

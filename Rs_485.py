@@ -6,15 +6,15 @@ from Chek_sum_and_addr import data_packet
 class Rs485Communication(object):
 
     def __init__(self,
-                 port='/dev/ttyS0',
-                 baudrate=9600,
-                 parity=serial.PARITY_NONE,
-                 stopbits=serial.STOPBITS_ONE,
-                 bytesize=serial.EIGHTBITS,
-                 timeout=1,
-                 en_485_pin=12,
-                 en_tx_pin=16,
-                 addr=0x0,):
+                 port = '/dev/ttyS0',
+                 baudrate = 9600,
+                 parity = serial.PARITY_NONE,
+                 stopbits = serial.STOPBITS_ONE,
+                 bytesize = serial.EIGHTBITS,
+                 timeout = 1,
+                 en_485_pin = 12,
+                 en_tx_pin = 16,
+                 addr = 0x0,):
 
         self.PORT = port
         self.BAUDRATE = baudrate

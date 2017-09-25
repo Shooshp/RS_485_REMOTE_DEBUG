@@ -1,6 +1,6 @@
 import Rs_485
 
-Power_Source = Rs_485.Rs485Communication()
+Power_Source = Rs_485.Rs485Communication(timeout=100, addr=0x55)
 
 counter = 0
 

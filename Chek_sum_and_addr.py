@@ -20,12 +20,12 @@ class data_packet(object):
 
         CRC16().crc16_constant = self.CRC_CONSTANT
 
-        self.CRC = CRC16().calculate(data)
 
-        self.BIN = 'Address: '.encode() + pack('B', self.ADDR)
-        self.BIN = self.BIN + 'Length: '.encode() + pack('B', len(data))
-        self.BIN = self.BIN + data
-        self.BIN = self.BIN + 'CRC: '.encode() + pack('H', self.CRC)
+
+        self.BIN = 'Address: '.encode() + pack('B', self.ADDR) + '\n\r'.encode()
+        self.BIN = self.BIN + 'Length: '.encode() + pack('B', len(data)) + '\n\r'.encode()
+        self.BIN = self.BIN + data + '\n\r'.encode()
+        self.BIN = self.BIN + 'CRC: '.encode() + pack('H', CRC16().calculate(self.BIN)) + '\n\r'.encode()
 
         print(self.BIN)
 

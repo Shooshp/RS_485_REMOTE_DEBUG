@@ -1,6 +1,7 @@
 import serial
 import time
 import RPi.GPIO as GPIO
+import struct
 from PyCRC.CRC16 import CRC16
 
 
@@ -12,7 +13,7 @@ class Communicator(object):
                  parity=serial.PARITY_NONE,
                  stopbits=serial.STOPBITS_ONE,
                  bytesize=serial.EIGHTBITS,
-                 timeout=1,
+                 timeout=0.1,
                  en_485_pin=12,
                  en_tx_pin=16,
                  crc_constant=0xA001
@@ -45,28 +46,22 @@ class Communicator(object):
 
         self.usleep = lambda x: time.sleep(x/1000000.0)
 
-    def write_to_serial(self, data, address):
-        self.rs485_port.write(self.enclose(data, address))
+    def write_to_serial(self, command, data, address):
+        self.rs485_port.write(self.enclose(command, data, address))
+        self.wait_for_an_answer()
 
     def read_from_serial(self):
         self.rs485_port.read()
 
-    def enclose(self, data, address):
-        is_string = isinstance(data, str)
-        is_bytes = isinstance(data, bytes)
+    def enclose(self, command, data, address):
 
-        if not is_string and not is_bytes:
-            raise Exception("Please provide a string or a byte sequence as argument for calculation.")
+        data_lenght = len(data)
 
-        CRC16().crc16_constant = self.CRC_CONSTANT
+        self.BUFFER_ARRAY = struct.pack('BBB',address,command,data_lenght) + data
+        CRC = CRC16().calculate(self.BUFFER_ARRAY)
+        self.BUFFER_ARRAY = self.BUFFER_ARRAY + struct.pack('>H', CRC)
 
-        self.BUFFER_ARRAY = 'Address: '.encode() + hex(address).encode()
-        self.BUFFER_ARRAY = self.BUFFER_ARRAY + ' Command: '.encode() + data
-        self.BUFFER_ARRAY = self.BUFFER_ARRAY + ' CRC: '.encode() + hex(CRC16().calculate(self.BUFFER_ARRAY)).encode()
-        self.BUFFER_ARRAY = self.BUFFER_ARRAY + '\r\n'.encode()
-
-        print(self.BUFFER_ARRAY)
-
+        print('Full Message: ' + str(self.BUFFER_ARRAY))
         return self.BUFFER_ARRAY
 
     def chain_scan(self):
@@ -74,14 +69,13 @@ class Communicator(object):
             self.write_to_serial('Whois'.encode(), address)
 
     def wait_for_an_answer(self):
+        self.usleep(40000)
         GPIO.output(self.EN_TX_PIN, 0)
 
-        for counter in range(100):
-            self.BUFFER_ARRAY = self.rs485_port.readline()
-
-            if not self.BUFFER_ARRAY:
-                self.usleep(10)
+        self.BUFFER_ARRAY = self.rs485_port.read(3)
 
         GPIO.output(self.EN_TX_PIN, 1)
 
+        print('Got Replay: ' + str(self.BUFFER_ARRAY))
         return self.BUFFER_ARRAY
+

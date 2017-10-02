@@ -1,5 +1,16 @@
+import struct
 
 class PowerSource(object):
+
+    command_set_voltage      = 1
+    command_set_current      = 2
+    command_set_alarm_fringe = 3
+    command_read_voltage     = 4
+    command_read_current     = 5
+    command_read_temperature = 6
+    command_control_turn_on  = 7
+    command_control_turn_off = 8
+
 
     def __init__(self,
                  serial_port,
@@ -32,9 +43,12 @@ class PowerSource(object):
         if self.VOLTAGE_SET < 0:
             self.VOLTAGE_SET = 0
 
-        self.ARRAY_TO_SEND = 'Set Voltage: '.encode() + str(self.VOLTAGE_SET).encode()
+        self.ARRAY_TO_SEND = struct.pack('>H',self.VOLTAGE_SET)
 
-        self.SERIAL_PORT.write_to_serial(self.ARRAY_TO_SEND, self.ADDRESS)
+        self.SERIAL_PORT.write_to_serial(
+            command = self.command_set_voltage,
+            data    = self.ARRAY_TO_SEND,
+            address = self.ADDRESS)
 
     def set_current(self, value):
         is_int = isinstance(value, int)
@@ -50,6 +64,5 @@ class PowerSource(object):
         if self.CURRENT_LIMIT < 0:
             self.CURRENT_LIMIT = 0
 
-        self.ARRAY_TO_SEND = 'Set Current: '.encode() + str(self.CURRENT_LIMIT).encode()
-
-        self.SERIAL_PORT.write_to_serial(self.ARRAY_TO_SEND, self.ADDRESS)
+        self.ARRAY_TO_SEND = struct.pack('H', self.VOLTAGE_SET)
+        self.SERIAL_PORT.write_to_serial(command=self.command_set_current, data=self.ARRAY_TO_SEND,address=self.ADDRESS)

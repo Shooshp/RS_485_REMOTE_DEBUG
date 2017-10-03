@@ -5,6 +5,7 @@
       <w>baudrate</w>
       <w>bytesize</w>
       <w>gpio</w>
+      <w>msleep</w>
       <w>stopbits</w>
       <w>usleep</w>
     </words>

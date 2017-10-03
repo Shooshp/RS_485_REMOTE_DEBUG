@@ -4,7 +4,6 @@ import RPi.GPIO as GPIO
 import struct
 from PyCRC.CRC16 import CRC16
 
-
 class Communicator(object):
 
     def __init__(self,
@@ -13,7 +12,7 @@ class Communicator(object):
                  parity=serial.PARITY_NONE,
                  stopbits=serial.STOPBITS_ONE,
                  bytesize=serial.EIGHTBITS,
-                 timeout=0.1,
+                 timeout=1,
                  en_485_pin=12,
                  en_tx_pin=16,
                  crc_constant=0xA001
@@ -41,23 +40,26 @@ class Communicator(object):
             parity=self.PARITY,
             stopbits=self.STOPBITS,
             bytesize=self.BYTESIZE,
-            timeout=self.TIMEOUT
+            timeout=self.TIMEOUT,
         )
 
-        self.usleep = lambda x: time.sleep(x/1000000.0)
+        self.usleep = lambda x: time.sleep(x / 1000000.0)
+        self.msleep = lambda x: time.sleep(x / 1000.0)
+
+        self.msleep(5)
 
     def write_to_serial(self, command, data, address):
         self.rs485_port.write(self.enclose(command, data, address))
+        self.delay_calculate(len(self.enclose(command,data,address)))
         self.wait_for_an_answer()
 
     def read_from_serial(self):
         self.rs485_port.read()
 
     def enclose(self, command, data, address):
+        data_length = len(data)
 
-        data_lenght = len(data)
-
-        self.BUFFER_ARRAY = struct.pack('BBB',address,command,data_lenght) + data
+        self.BUFFER_ARRAY = struct.pack('BBB', address, command, data_length) + data
         CRC = CRC16().calculate(self.BUFFER_ARRAY)
         self.BUFFER_ARRAY = self.BUFFER_ARRAY + struct.pack('>H', CRC)
 
@@ -66,16 +68,18 @@ class Communicator(object):
 
     def chain_scan(self):
         for address in range(255):
-            self.write_to_serial('Whois'.encode(), address)
+            self.write_to_serial(command=0x0,  data='Whois'.encode(), address=address)
 
     def wait_for_an_answer(self):
-        self.usleep(40000)
         GPIO.output(self.EN_TX_PIN, 0)
-
-        self.BUFFER_ARRAY = self.rs485_port.read(3)
-
+        self.BUFFER_ARRAY = self.rs485_port.read(size=3)
         GPIO.output(self.EN_TX_PIN, 1)
-
         print('Got Replay: ' + str(self.BUFFER_ARRAY))
         return self.BUFFER_ARRAY
+
+    def delay_calculate(self, size_of_transmission):
+        time_to_sleep = ((self.BYTESIZE + self.STOPBITS + 1) / self.BAUDRATE) * size_of_transmission
+        print('Size of transmission: ' + str(size_of_transmission))
+        print('Time to sleep: ' + str(time_to_sleep))
+        time.sleep(time_to_sleep)
 

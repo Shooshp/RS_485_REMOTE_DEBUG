@@ -1,11 +1,14 @@
-import SerialCommunications
+from SerialCommunications import Communicator
+from HostController import  HostController
 from PowerSourceControl import PowerSource
 
-RS485 = SerialCommunications.Communicator()
+Communicator.open_port()
 
-VCC_INT = PowerSource(RS485, address=0xAA)
-VCC_LOAD = PowerSource(RS485, address=0xA3)
 
-VCC_INT.set_voltage(10000)
-VCC_LOAD.set_current(4200)
+VCC_INT = PowerSource(address=0xAA)
+VCC_LOAD = PowerSource(address=0xA3)
 
+print(VCC_LOAD.INSTANCE_NAME)
+
+VCC_INT.set_voltage(1500)
+VCC_LOAD.set_current(3200)

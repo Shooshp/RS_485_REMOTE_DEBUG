@@ -2,6 +2,7 @@
   <dictionary name="ParSp">
     <words>
       <w>addr</w>
+      <w>atmega</w>
       <w>baudrate</w>
       <w>bytesize</w>
       <w>gpio</w>

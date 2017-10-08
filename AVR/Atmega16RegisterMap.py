@@ -233,7 +233,7 @@ DDB5  = 5
 DDB6  = 6
 DDB7  = 7
 
-PORTB   =  0x18
+DDRB  =  0x17
 PORTB0  = 0
 PORTB1  = 1
 PORTB2  = 2

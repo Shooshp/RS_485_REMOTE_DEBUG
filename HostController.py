@@ -1,4 +1,5 @@
-from SerialCommunications import Communicator
+# from SerialCommunications import Communicator
+
 
 class HostController(object):
     def __init__(self, address=None):

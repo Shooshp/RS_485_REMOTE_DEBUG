@@ -1,8 +1,9 @@
 import struct
 import traceback
 from HostController import HostController
-from AVR import Atmega16RegisterMap as Atmega16
+from AVR.AVR_SPI import Atmega16 as RegisterMap
 from enum import IntEnum
+from AVR import RegistersAndObjects
 
 
 class PowerSourceCommands(IntEnum):
@@ -32,6 +33,78 @@ class PowerSource(HostController):
 
         self.CURRENT_LIMIT = 0
         self.VOLTAGE_SET = 0
+
+        TWBR = RegistersAndObjects.Register(self)
+        TWSR = RegistersAndObjects.Register(self)
+        TWAR = RegistersAndObjects.Register(self)
+        TWDR = RegistersAndObjects.Register(self)
+        ADCL = RegistersAndObjects.Register(self)
+        ADCH = RegistersAndObjects.Register(self)
+        ADCSRA = RegistersAndObjects.Register(self)
+        ADMUX = RegistersAndObjects.Register(self)
+        ACSR = RegistersAndObjects.Register(self)
+        UBRRL = RegistersAndObjects.Register(self)
+        UCSRB = RegistersAndObjects.Register(self)
+        UCSRA = RegistersAndObjects.Register(self)
+        UDR = RegistersAndObjects.Register(self)
+        SPCR = RegistersAndObjects.Register(self)
+        SPSR = RegistersAndObjects.Register(self)
+        SPDR = RegistersAndObjects.Register(self)
+        PIND = RegistersAndObjects.Register(self)
+        DDRD = RegistersAndObjects.Register(self)
+        PORTD = RegistersAndObjects.Register(self)
+        PINC = RegistersAndObjects.Register(self)
+        DDRC = RegistersAndObjects.Register(self)
+        PORTC = RegistersAndObjects.Register(self)
+        PINB = RegistersAndObjects.Register(self)
+        DDRB = RegistersAndObjects.Register(self)
+        PORTB = RegistersAndObjects.Register(self)
+        PINA = RegistersAndObjects.Register(self)
+        DDRA = RegistersAndObjects.Register(self)
+        PORTA = RegistersAndObjects.Register(self)
+        EECR = RegistersAndObjects.Register(self)
+        EEDR = RegistersAndObjects.Register(self)
+        EEARL = RegistersAndObjects.Register(self)
+        EEARH = RegistersAndObjects.Register(self)
+        UBRRH = RegistersAndObjects.Register(self)
+        UCSRC = RegistersAndObjects.Register(self)
+        WDTCR = RegistersAndObjects.Register(self)
+        ASSR = RegistersAndObjects.Register(self)
+        OCR2 = RegistersAndObjects.Register(self)
+        TCNT2 = RegistersAndObjects.Register(self)
+        TCCR2 = RegistersAndObjects.Register(self)
+        ICR1L = RegistersAndObjects.Register(self)
+        ICR1H = RegistersAndObjects.Register(self)
+        OCR1BL = RegistersAndObjects.Register(self)
+        OCR1BH = RegistersAndObjects.Register(self)
+        OCR1AL = RegistersAndObjects.Register(self)
+        OCR1AH = RegistersAndObjects.Register(self)
+        TCNT1L = RegistersAndObjects.Register(self)
+        TCNT1H = RegistersAndObjects.Register(self)
+        TCCR1B = RegistersAndObjects.Register(self)
+        TCCR1A = RegistersAndObjects.Register(self)
+        SFIOR = RegistersAndObjects.Register(self)
+        OSCCAL = RegistersAndObjects.Register(self)
+        OCDR = RegistersAndObjects.Register(self)
+        TCNT0 = RegistersAndObjects.Register(self)
+        TCCR0 = RegistersAndObjects.Register(self)
+        MCUCSR = RegistersAndObjects.Register(self)
+        MCUCR = RegistersAndObjects.Register(self)
+        TWCR = RegistersAndObjects.Register(self)
+        SPMCSR = RegistersAndObjects.Register(self)
+        TIFR = RegistersAndObjects.Register(self)
+        TIMSK = RegistersAndObjects.Register(self)
+        GIFR = RegistersAndObjects.Register(self)
+        GICR = RegistersAndObjects.Register(self)
+        OCR0 = RegistersAndObjects.Register(self)
+
+        self.GPIOA = RegistersAndObjects.GPIO(DDRA, PORTA, PINA)
+        self.GPIOB = RegistersAndObjects.GPIO(DDRB, PORTB, PINB)
+        self.GPIOC = RegistersAndObjects.GPIO(DDRC, PORTC, PINC)
+        self.GPIOD = RegistersAndObjects.GPIO(DDRD, PORTD, PIND)
+
+        self.GPIOA.ddr(0x1)
+
 
     def set_voltage(self, value):
         is_int = isinstance(value, int)
@@ -70,7 +143,8 @@ class PowerSource(HostController):
     def write_to_register(self, address, value):
         self.ARRAY_TO_SEND = struct.pack('>HB', address, value)
         self.COMMAND = PowerSourceCommands.register_write
-        self.write()
+        #self.write()
+        print(self.ARRAY_TO_SEND)
 
     def read_from_register(self, address):
         self.ARRAY_TO_SEND = struct.pack('>H', address)
@@ -79,18 +153,3 @@ class PowerSource(HostController):
         return data
 
 
-
-class AVR_SPI(object):
-    spi_port = Atmega16.PORTB
-    spi_ddr  = Atmega16.DDRB
-    spi_ddr_MISO = Atmega16.DDB6
-    spi_ddr_MOSI = Atmega16.DDB5
-    spi_ddr_SS   = Atmega16.DDB4
-    spi_ddr_CLK  = Atmega16.DDB7
-    spi_pin_SS = Atmega16.PINB4
-
-    data_read = bytes
-    data_write = bytes
-
-    def SPI_SELECT(self):
-        data_read = PowerSource.read_from_register(self.spi_port)

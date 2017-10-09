@@ -6,57 +6,72 @@ from PyCRC.CRC16 import CRC16
 
 
 class Communicator(object):
-    port = '/dev/ttyS0'
-    baudrate = 1000000
-    parity = serial.PARITY_NONE
-    stopbits = serial.STOPBITS_ONE
-    bytesize = serial.EIGHTBITS
-    timeout = 0.01
-    en_485_pin = 12
-    en_tx_pin = 16
-    crc_constant = 0xA001
-    CURRENT_CRC = int()
 
-    HOST = None
+    def __init__(self,
+                 port='/dev/ttyS0',
+                 baudrate = 1000000,
+                 parity = serial.PARITY_NONE,
+                 stopbits = serial.STOPBITS_ONE,
+                 bytesize = serial.EIGHTBITS,
+                 timeout = 0.1,
+                 en_485_pin = 12,
+                 en_tx_pin = 16,
+                 crc_constant = 0xA001
+                 ):
 
-    rs485_port = serial.Serial(
-        port=port,
-        baudrate=baudrate,
-        parity=parity,
-        stopbits=stopbits,
-        bytesize=bytesize,
-        timeout=timeout
-    )
+        self.PORT = port
+        self.BAUDRATE = baudrate
+        self.PARITY = parity
+        self.STOPBITS = stopbits
+        self.BYTESIZE = bytesize
+        self.TIMEOUT = timeout
+        self.EN_485_PIN = en_485_pin
+        self.EN_TX_PIN = en_tx_pin
+        self.CRC_CONSTANT = crc_constant
 
-    @staticmethod
-    def open_port():
+        self.HOST = None
+        self.CURRENT_CRC = None
+        self.BUFFER_ARRAY = None
+
+        self.RS_485 = serial.Serial(
+            port=self.PORT,
+            baudrate=self.BAUDRATE,
+            parity=self.PARITY,
+            stopbits=self.STOPBITS,
+            bytesize=self.BYTESIZE,
+            timeout=self.TIMEOUT
+        )
 
         GPIO.setmode(GPIO.BOARD)
         GPIO.setwarnings(False)
-        GPIO.setup(Communicator.en_485_pin, GPIO.OUT, initial=GPIO.HIGH)
-        GPIO.setup(Communicator.en_tx_pin,  GPIO.OUT, initial=GPIO.HIGH)
+        GPIO.setup(self.EN_485_PIN , GPIO.OUT, initial=GPIO.HIGH)
+        GPIO.setup(self.EN_TX_PIN, GPIO.OUT, initial=GPIO.HIGH)
 
-        msleep(5)
+        self.msleep(5)
 
-    @staticmethod
-    def write_to_serial(address, command, data, name, type):
+
+    def write_to_serial(self, host):
+
+        self.HOST = host
 
         status = 0
         error_counter = 0
 
         while not status and error_counter < 100:
-            BUFFER_ARRAY = struct.pack('BBB', address, command, len(data)) + data
-            CURRENT_CRC = CRC16().calculate(BUFFER_ARRAY)
-            BUFFER_ARRAY = BUFFER_ARRAY + struct.pack('>H', CURRENT_CRC)
+            self.BUFFER_ARRAY = struct.pack('BBB', self.HOST.ADDRESS, self.HOST.COMMAND, len(self.HOST.ARRAY_TO_SEND)) \
+                           + self.HOST.ARRAY_TO_SEND
+            self.CURRENT_CRC = CRC16().calculate(self.BUFFER_ARRAY)
+            self.BUFFER_ARRAY = self.BUFFER_ARRAY + struct.pack('>H', self.CURRENT_CRC)
 
 
-            Communicator.rs485_port.write(BUFFER_ARRAY)
-            Communicator.delay_calculate(BUFFER_ARRAY)
+            self.RS_485.write(self.BUFFER_ARRAY)
+            self.delay_calculate()
 
-            callback = Communicator.wait_for_an_answer()
+            callback = self.wait_for_an_answer()
 
             if callback:
-                if struct.unpack('B', callback[0:1])[0] == address and struct.unpack('>H', callback[1:3])[0] == CURRENT_CRC:
+                if struct.unpack('B', callback[0:1])[0] == self.HOST.ADDRESS and\
+                                struct.unpack('>H', callback[1:3])[0] == self.CURRENT_CRC:
                     status = 1
                 else:
                     error_counter += 1
@@ -69,45 +84,80 @@ class Communicator(object):
             else:
                 error_message = ' Without errors.'
 
-            print('Data was successfully send to host '
-                  + str(type) + ': '
-                  + str(name) + ' at address '
-                  + str(hex(address)) + '!'
-                  + error_message)
+         #   print('Data was successfully send to host '
+         #         + str(self.HOST.OBJECT_TYPE) + ': '
+         #         + str(self.HOST.INSTANCE_NAME) + ' at address '
+         #         + str(hex(self.HOST.ADDRESS)) + '!'
+         #         + error_message)
 
         else:
             print('Failed to reach host '
-                  + str(type) + ': '
-                  + str(name) + ' at address '
-                  + str(hex(address)) + '!')
+                  + str(self.HOST.OBJECT_TYPE) + ': '
+                  + str(self.HOST.INSTANCE_NAME) + ' at address '
+                  + str(hex(self.HOST.ADDRESS)) + '!')
 
-    @staticmethod
-    def read_from_serial():
-        Communicator.rs485_port.read()
+    def read_from_serial(self, host):
+
+        status = 0
+        error_counter = 0
+
+        while not status and error_counter < 100:
+            self.write_to_serial(host)
+            callback = self.wait_for_an_reply()
+
+            if callback:
+                if struct.unpack('B', callback[0:1])[0] == self.HOST.ADDRESS and\
+                                struct.unpack('>H', callback[2:4])[0] == self.CURRENT_CRC:
+                    status = 1
+                    self.HOST.ARRAY_TO_RECEIVE = struct.unpack('B', callback[1:2])[0]
+                else:
+                    error_counter += 1
+            else:
+                error_counter += 1
+
+        if status:
+            if error_counter:
+                error_message = ' During transmission occurred ' + str(error_counter + 1) + ' errors!'
+            else:
+                error_message = ' Without errors.'
+
+         #   print('Data was successfully read from host '
+         #         + str(self.HOST.OBJECT_TYPE) + ': '
+         #         + str(self.HOST.INSTANCE_NAME) + ' at address '
+         #         + str(hex(self.HOST.ADDRESS)) + '!'
+         #         + error_message)
+
+        else:
+            print('Failed to get reply from host '
+                  + str(self.HOST.OBJECT_TYPE) + ': '
+                  + str(self.HOST.INSTANCE_NAME) + ' at address '
+                  + str(hex(self.HOST.ADDRESS)) + '!')
 
 
-        # def chain_scan(self):
-        #     for address in range(255):
-        #        self.write_to_serial(command=0x0,  data='Whois'.encode(), address=address)
+    # def chain_scan(self):
+    #     for address in range(255):
+    #        self.write_to_serial(command=0x0,  data='Whois'.encode(), address=address)
 
-    @staticmethod
-    def wait_for_an_answer():
-        GPIO.output(Communicator.en_tx_pin, 0)
-        replay_buffer = Communicator.rs485_port.read(size=3)
-        GPIO.output(Communicator.en_tx_pin, 1)
-        usleep(800)
+    def wait_for_an_answer(self):
+        GPIO.output(self.EN_TX_PIN, 0)
+        replay_buffer = self.RS_485.read(size=3)
+        GPIO.output(self.EN_TX_PIN, 1)
+        self.usleep(800)
         return replay_buffer
 
-    @staticmethod
-    def delay_calculate(transmission):
-        time_to_sleep = ((Communicator.bytesize + Communicator.stopbits + 1) / Communicator.baudrate) * len(
-            transmission)
-        time.sleep(time_to_sleep)
+    def wait_for_an_reply(self):
+        GPIO.output(self.EN_TX_PIN, 0)
+        replay_buffer = self.RS_485.read(size=4)
+        GPIO.output(self.EN_TX_PIN, 1)
+        self.usleep(800)
+        return replay_buffer
 
+    def delay_calculate(self):
+        time.sleep(((self.BYTESIZE + self.STOPBITS + 1) / self.BAUDRATE) * len(self.BUFFER_ARRAY))
 
-def msleep(ms):
-    time.sleep(ms / 1000.0)
+    def msleep(self, ms):
+        time.sleep(ms / 1000.0)
 
-def usleep(us):
-    time.sleep(us / 1000000.0)
+    def usleep(self, us):
+        time.sleep(us / 1000000.0)
 

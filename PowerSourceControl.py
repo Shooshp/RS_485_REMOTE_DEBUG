@@ -1,29 +1,27 @@
 import struct
 import traceback
-from HostController import HostController
-from AVR.AVR_SPI import Atmega16 as RegisterMap
 from enum import IntEnum
+from HostController import HostController
 from AVR import RegistersAndObjects
+from AVR import  Atmega16RegisterMap as BitMap
+from AVR.Atmega16RegisterMap import Atmega16 as RegisterMap
+from AVR.ConnectedDevices.MCP4822 import MCP4822 as DAC
+
+
 
 
 class PowerSourceCommands(IntEnum):
-    set_voltage = 1
-    set_current = 2
-    set_alarm_fringe = 3
-    read_voltage = 4
-    read_current = 5
-    read_temperature = 6
-    turn_on = 7
-    turn_off = 8
+    register_write = 1
+    register_read = 2
+    register_set = 3
+    register_clear = 4
 
-    register_write = 20
-    register_read = 21
 
 
 class PowerSource(HostController):
-    def __init__(self, address):
+    def __init__(self, address, communicator):
 
-        super().__init__(address=address)
+        super().__init__(address=address, communicator=communicator)
         if self.INSTANCE_NAME is None:
             (filename, line_number, function_name, text) = traceback.extract_stack()[-2]
             self.INSTANCE_NAME = text[:text.find('=')].strip()
@@ -103,53 +101,32 @@ class PowerSource(HostController):
         self.GPIOC = RegistersAndObjects.GPIO(DDRC, PORTC, PINC)
         self.GPIOD = RegistersAndObjects.GPIO(DDRD, PORTD, PIND)
 
-        self.GPIOA.ddr(0x1)
+        self.SPI = RegistersAndObjects.SPI(SPCR,SPSR,SPDR,self.GPIOB)
+
+        self.DAC = DAC(spi_port=self.SPI, gpio_port=self.GPIOC, bitmap=BitMap)
+
+        self.ADC = RegistersAndObjects.ADC(ADCH,ADCL,ADCSRA,ADMUX,ACSR,self.GPIOA, BitMap)
 
 
-    def set_voltage(self, value):
-        is_int = isinstance(value, int)
-
-        if not is_int:
-            raise Exception("Please provide integer value for set_voltage() function")
-
-        self.VOLTAGE_SET = value
-
-        if self.VOLTAGE_SET > 20000:
-            self.VOLTAGE_SET = 20000
-
-        if self.VOLTAGE_SET < 0:
-            self.VOLTAGE_SET = 0
-
-        self.ARRAY_TO_SEND = struct.pack('>H', self.VOLTAGE_SET)
-        self.COMMAND = PowerSourceCommands.set_voltage
-        self.write(self)
-
-    def set_current(self, value):
-        is_int = isinstance(value, int)
-
-        if not is_int:
-            raise Exception("Please provide integer value for set_current() function")
-
-        if self.CURRENT_LIMIT > 3000:
-            self.CURRENT_LIMIT = 3000
-
-        if self.CURRENT_LIMIT < 0:
-            self.CURRENT_LIMIT = 0
-
-        self.ARRAY_TO_SEND = struct.pack('>H', self.CURRENT_LIMIT)
-        self.COMMAND = PowerSourceCommands.set_current
-        self.write(self)
-
-    def write_to_register(self, address, value):
+    def register_write(self, address, value):
         self.ARRAY_TO_SEND = struct.pack('>HB', address, value)
         self.COMMAND = PowerSourceCommands.register_write
-        #self.write()
-        print(self.ARRAY_TO_SEND)
+        self.write()
 
-    def read_from_register(self, address):
+    def register_read(self, address):
         self.ARRAY_TO_SEND = struct.pack('>H', address)
         self.COMMAND = PowerSourceCommands.register_read
-        data = self.read(self)
-        return data
+        self.read()
+        return self.ARRAY_TO_RECEIVE
+
+    def register_set(self, address, value):
+        self.ARRAY_TO_SEND = struct.pack('>HB', address, value)
+        self.COMMAND = PowerSourceCommands.register_set
+        self.write()
+
+    def register_clear(self, address, value):
+        self.ARRAY_TO_SEND = struct.pack('>HB', address, value)
+        self.COMMAND = PowerSourceCommands.register_clear
+        self.write()
 
 

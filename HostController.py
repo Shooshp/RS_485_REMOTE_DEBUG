@@ -14,6 +14,8 @@ class HostController(object):
 
         self.INSTANCE_NAME = None
         self.OBJECT_TYPE = None
+        self.DEVICE_ID = bytearray()
+
 
     def write(self):
         self.COMMUNICATOR.write_to_serial(self)

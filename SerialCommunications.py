@@ -84,11 +84,11 @@ class Communicator(object):
             else:
                 error_message = ' Without errors.'
 
-         #   print('Data was successfully send to host '
-         #         + str(self.HOST.OBJECT_TYPE) + ': '
-         #         + str(self.HOST.INSTANCE_NAME) + ' at address '
-         #         + str(hex(self.HOST.ADDRESS)) + '!'
-         #         + error_message)
+            #print('Data was successfully send to host '
+            #      + str(self.HOST.OBJECT_TYPE) + ': '
+            #      + str(self.HOST.INSTANCE_NAME) + ' at address '
+            #      + str(hex(self.HOST.ADDRESS)) + '!'
+            #      + error_message)
 
         else:
             print('Failed to reach host '
@@ -97,12 +97,12 @@ class Communicator(object):
                   + str(hex(self.HOST.ADDRESS)) + '!')
 
     def read_from_serial(self, host):
-
+        self.HOST = host
         status = 0
         error_counter = 0
 
         while not status and error_counter < 100:
-            self.write_to_serial(host)
+            self.write_to_serial(self.HOST)
             callback = self.wait_for_an_reply()
 
             if callback:

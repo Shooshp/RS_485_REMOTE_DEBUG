@@ -1,21 +1,20 @@
 import struct
 import traceback
+import time
+import uuid
 from enum import IntEnum
 from HostController import HostController
 from AVR import RegistersAndObjects
 from AVR import  Atmega16RegisterMap as BitMap
-from AVR.Atmega16RegisterMap import Atmega16 as RegisterMap
 from AVR.ConnectedDevices.MCP4822 import MCP4822 as DAC
-
-
-
 
 class PowerSourceCommands(IntEnum):
     register_write = 1
     register_read = 2
     register_set = 3
     register_clear = 4
-
+    get_id = 5
+    set_id = 6
 
 
 class PowerSource(HostController):
@@ -101,10 +100,14 @@ class PowerSource(HostController):
         self.GPIOC = RegistersAndObjects.GPIO(DDRC, PORTC, PINC)
         self.GPIOD = RegistersAndObjects.GPIO(DDRD, PORTD, PIND)
 
+        if self.get_device_id():
+            self.set_device_id()
+            self.get_device_id()
+            print('New device was detected, with address: ' + str(hex(self.ADDRESS)) + ' id was assigned: '
+                  + str(self.DEVICE_ID))
+
         self.SPI = RegistersAndObjects.SPI(SPCR,SPSR,SPDR,self.GPIOB)
-
         self.DAC = DAC(spi_port=self.SPI, gpio_port=self.GPIOC, bitmap=BitMap)
-
         self.ADC = RegistersAndObjects.ADC(ADCH,ADCL,ADCSRA,ADMUX,ACSR,self.GPIOA, BitMap)
 
 
@@ -129,4 +132,31 @@ class PowerSource(HostController):
         self.COMMAND = PowerSourceCommands.register_clear
         self.write()
 
+    def get_device_id(self):
+        self.DEVICE_ID = bytearray() #Clean this just in case
+        status = 0
+        for device_id_byte in range(0, 16):
+            self.ARRAY_TO_SEND = struct.pack('>H', device_id_byte)
+            self.COMMAND = PowerSourceCommands.get_id
+            self.read()
+            self.DEVICE_ID = self.DEVICE_ID + bytes([self.ARRAY_TO_RECEIVE])
+            if self.ARRAY_TO_RECEIVE == 0xFF:
+                status += 1
+        if status != 16:
+            status = 0
+        return status
 
+    def set_device_id(self):
+        unique_id = uuid.uuid4()
+        for device_id_byte in range(0, 16):
+            self.ARRAY_TO_SEND = struct.pack('>HB', device_id_byte, unique_id.bytes[device_id_byte])
+            self.COMMAND = PowerSourceCommands.set_id
+            self.write()
+            time.sleep(0.01)
+
+    def clear_device_id(self):
+        for device_id_byte in range(0, 16):
+            self.ARRAY_TO_SEND = struct.pack('>HB', device_id_byte, 0xFF)
+            self.COMMAND = PowerSourceCommands.set_id
+            self.write()
+            time.sleep(0.01)

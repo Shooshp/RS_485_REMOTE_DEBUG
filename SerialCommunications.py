@@ -13,7 +13,7 @@ class Communicator(object):
                  parity = serial.PARITY_NONE,
                  stopbits = serial.STOPBITS_ONE,
                  bytesize = serial.EIGHTBITS,
-                 timeout = 0.1,
+                 timeout = 0.01,
                  en_485_pin = 12,
                  en_tx_pin = 16,
                  crc_constant = 0xA001
@@ -134,9 +134,33 @@ class Communicator(object):
                   + str(hex(self.HOST.ADDRESS)) + '!')
 
 
-    # def chain_scan(self):
-    #     for address in range(255):
-    #        self.write_to_serial(command=0x0,  data='Whois'.encode(), address=address)
+    def chain_scan(self):
+        hosts = bytearray
+        for address in range(255):
+            status = 0
+            error_counter = 0
+            self.BUFFER_ARRAY = struct.pack('BBB', address, 0, 1) + bytes(0x1)
+            self.CURRENT_CRC = CRC16().calculate(self.BUFFER_ARRAY)
+            self.BUFFER_ARRAY = self.BUFFER_ARRAY + struct.pack('>H', self.CURRENT_CRC)
+            while not status and error_counter < 10:
+                self.RS_485.write(self.BUFFER_ARRAY)
+                self.delay_calculate()
+                callback = self.wait_for_an_answer()
+
+                if callback:
+                    if struct.unpack('B', callback[0:1])[0] == address and \
+                                    struct.unpack('>H', callback[1:3])[0] == self.CURRENT_CRC:
+                        status = 1
+                    else:
+                        error_counter += 1
+                else:
+                    error_counter += 1
+
+            if status:
+                hosts.append(bytes(address))
+        print(hosts)
+        return hosts
+
 
     def wait_for_an_answer(self):
         GPIO.output(self.EN_TX_PIN, 0)

@@ -5,7 +5,7 @@ import struct
 from PyCRC.CRC16 import CRC16
 
 
-class Communicator(object):
+class SerialCommunicator(object):
 
     def __init__(self,
                  port='/dev/ttyS0',
@@ -13,7 +13,7 @@ class Communicator(object):
                  parity = serial.PARITY_NONE,
                  stopbits = serial.STOPBITS_ONE,
                  bytesize = serial.EIGHTBITS,
-                 timeout = 0.01,
+                 timeout = 0.005,
                  en_485_pin = 12,
                  en_tx_pin = 16,
                  crc_constant = 0xA001
@@ -133,32 +133,37 @@ class Communicator(object):
                   + str(self.HOST.INSTANCE_NAME) + ' at address '
                   + str(hex(self.HOST.ADDRESS)) + '!')
 
+    def chain_scan(self,device_list,trys = 5):
+        hosts = []
+        for device in device_list:
+            for address_bit in range(0,15):
+                address = device_list(device) | address_bit
+                ARRAY_TO_SEND = struct.pack('>H', 0x0)
+                command = 0x0
+                status = 0
+                error_counter = 0
+                self.BUFFER_ARRAY = struct.pack('BBB', address, command, len(ARRAY_TO_SEND))+ ARRAY_TO_SEND
+                self.CURRENT_CRC = CRC16().calculate(self.BUFFER_ARRAY)
+                self.BUFFER_ARRAY = self.BUFFER_ARRAY + struct.pack('>H', self.CURRENT_CRC)
 
-    def chain_scan(self):
-        hosts = bytearray
-        for address in range(255):
-            status = 0
-            error_counter = 0
-            self.BUFFER_ARRAY = struct.pack('BBB', address, 0, 1) + bytes(0x1)
-            self.CURRENT_CRC = CRC16().calculate(self.BUFFER_ARRAY)
-            self.BUFFER_ARRAY = self.BUFFER_ARRAY + struct.pack('>H', self.CURRENT_CRC)
-            while not status and error_counter < 10:
-                self.RS_485.write(self.BUFFER_ARRAY)
-                self.delay_calculate()
-                callback = self.wait_for_an_answer()
+                while not status and error_counter < trys:
+                    self.RS_485.write(self.BUFFER_ARRAY)
+                    self.delay_calculate()
+                    callback = self.wait_for_an_answer()
 
-                if callback:
-                    if struct.unpack('B', callback[0:1])[0] == address and \
-                                    struct.unpack('>H', callback[1:3])[0] == self.CURRENT_CRC:
-                        status = 1
+                    if callback:
+                        if struct.unpack('B', callback[0:1])[0] == address and \
+                                        struct.unpack('>H', callback[1:3])[0] == self.CURRENT_CRC:
+                            status = 1
+                        else:
+                            error_counter += 1
                     else:
                         error_counter += 1
-                else:
-                    error_counter += 1
 
-            if status:
-                hosts.append(bytes(address))
+                if status:
+                    hosts.append([device.name, hex(address)])
         print(hosts)
+        print(str(len(hosts)) + ' host was found!')
         return hosts
 
 
@@ -184,4 +189,3 @@ class Communicator(object):
 
     def usleep(self, us):
         time.sleep(us / 1000000.0)
-

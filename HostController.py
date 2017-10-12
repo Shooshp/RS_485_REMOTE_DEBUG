@@ -1,13 +1,23 @@
+from enum import IntEnum
+
+class DevicePrefixes(IntEnum):
+    PowerSource = 0xA0
+    Commutator = 0xB0
+    FPGA = 0xC0
+    ControlPanel = 0xD0
 
 class HostController(object):
 
     def __init__(self,
                  address=None,
-                 communicator=None
+                 communicator=None,
+                 db_connector=None
                  ):
-        self.COMMUNICATOR = communicator
 
+        self.DB_CONNECTOR = db_connector
+        self.COMMUNICATOR = communicator
         self.ADDRESS = address
+        self.DEVICE_ADDRESS_PREFIX = None
         self.ARRAY_TO_SEND = bytearray()
         self.ARRAY_TO_RECEIVE = bytearray()
         self.COMMAND = bytes()
@@ -15,7 +25,6 @@ class HostController(object):
         self.INSTANCE_NAME = None
         self.OBJECT_TYPE = None
         self.DEVICE_ID = bytearray()
-
 
     def write(self):
         self.COMMUNICATOR.write_to_serial(self)

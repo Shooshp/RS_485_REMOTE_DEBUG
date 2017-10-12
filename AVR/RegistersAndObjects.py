@@ -1,7 +1,7 @@
 import traceback
+import time
 from AVR import  Atmega16RegisterMap as BitMap
 from AVR.Atmega16RegisterMap import Atmega16 as RegisterMap
-
 
 class Register(object):
 
@@ -148,13 +148,15 @@ class ADC(object):
         chanel &= 0x7 # of ‘CHANEL’ between 0 and 7
         self.ADMUX_REG.clear((1<<self.BITMAP.ADMUX.MUX0)|(1<<self.BITMAP.ADMUX.MUX1)|(1<<self.BITMAP.ADMUX.MUX2))
         self.ADMUX_REG.set(chanel)
+        result = 0
 
-        self.ADCSRA_REG.set(1<<self.BITMAP.ADCSRA.ADSC)
+        for iteration in range(0,4):
+            self.ADCSRA_REG.set(1<<self.BITMAP.ADCSRA.ADSC)
+            adcl = self.ADCL_REG.read()
+            adch = self.ADCH_REG.read()
+            result = result + (((adcl | (adch << 8)) * self.VREF) / 0x3FF)
 
-        adcl = self.ADCL_REG.read()
-        adch = self.ADCH_REG.read()
-
-        result = ((adcl | (adch << 8)) * self.VREF) / 0x3FF
+        result = result / 4
 
         return int(result)
 

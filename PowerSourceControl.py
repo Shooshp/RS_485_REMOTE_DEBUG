@@ -3,7 +3,7 @@ import traceback
 import time
 import uuid
 from enum import IntEnum
-from HostController import HostController
+from HostController import HostController, DevicePrefixes
 from AVR import RegistersAndObjects
 from AVR import  Atmega16RegisterMap as BitMap
 from AVR.ConnectedDevices.MCP4822 import MCP4822 as DAC
@@ -16,17 +16,27 @@ class PowerSourceCommands(IntEnum):
     get_id = 5
     set_id = 6
 
-
 class PowerSource(HostController):
-    def __init__(self, address, communicator):
+    def __init__(self, address, communicator, db_connector):
 
-        super().__init__(address=address, communicator=communicator)
+        super().__init__(communicator=communicator, db_connector=db_connector)
         if self.INSTANCE_NAME is None:
             (filename, line_number, function_name, text) = traceback.extract_stack()[-2]
             self.INSTANCE_NAME = text[:text.find('=')].strip()
 
         if self.OBJECT_TYPE is None:
             self.OBJECT_TYPE = __class__.__name__
+
+        if self.OBJECT_TYPE not in DevicePrefixes.__members__:
+            raise Exception('Unknown device type: ' + str(self.OBJECT_TYPE))
+        else:
+            self.DEVICE_ADDRESS_PREFIX = DevicePrefixes[self.OBJECT_TYPE].value
+
+        if  address > 0xF or address < 0 :
+            raise Exception('Device addresses can only be in 0x0:0xF range! Get address of: ' + str(hex(address)))
+        else:
+            self.ADDRESS = self.DEVICE_ADDRESS_PREFIX | address
+
 
         self.CURRENT_LIMIT = 0
         self.VOLTAGE_SET = 0
@@ -110,6 +120,9 @@ class PowerSource(HostController):
         self.DAC = DAC(spi_port=self.SPI, gpio_port=self.GPIOC, bitmap=BitMap)
         self.ADC = RegistersAndObjects.ADC(ADCH,ADCL,ADCSRA,ADMUX,ACSR,self.GPIOA, BitMap)
 
+        self.get_device_id()
+        self.CALIBRATION_TABLE_NAME = self.OBJECT_TYPE + '_calibration_' + '0xFFFF'
+
 
     def register_write(self, address, value):
         self.ARRAY_TO_SEND = struct.pack('>HB', address, value)
@@ -160,3 +173,23 @@ class PowerSource(HostController):
             self.COMMAND = PowerSourceCommands.set_id
             self.write()
             time.sleep(0.01)
+
+    def calibration(self, force = None):
+        if not self.DB_CONNECTOR.check_if_table_exists(self.CALIBRATION_TABLE_NAME):
+            self.DB_CONNECTOR.open_connection_to_db('local_data_storage')
+            query = 'CREATE TABLE ['+self.CALIBRATION_TABLE_NAME+']'
+            self.DB_CONNECTOR.cursor_create()
+            self.DB_CONNECTOR.CURSOR.execute(query)
+            self.DB_CONNECTOR.commit()
+            self.DB_CONNECTOR.cursor_kill()
+            self.DB_CONNECTOR.close_connection_to_db()
+
+        results = []
+        start = time.time()
+        for value in range(0, 10):
+            self.DAC.set_voltage(0,value)
+            read_voltage = self.ADC.get_voltage(0)*2
+            results.append([value,read_voltage])
+        end = time.time()
+        print('Calibration completed! Time to calibrate: ' + str((end - start)))
+        print(results)

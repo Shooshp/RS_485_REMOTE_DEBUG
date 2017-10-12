@@ -5,6 +5,7 @@
       <w>atmega</w>
       <w>baudrate</w>
       <w>bytesize</w>
+      <w>fpga</w>
       <w>gpio</w>
       <w>msleep</w>
       <w>stopbits</w>

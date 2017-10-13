@@ -121,8 +121,7 @@ class PowerSource(HostController):
         self.ADC = RegistersAndObjects.ADC(ADCH,ADCL,ADCSRA,ADMUX,ACSR,self.GPIOA, BitMap)
 
         self.get_device_id()
-        self.CALIBRATION_TABLE_NAME = self.OBJECT_TYPE + '_calibration_' + '0xFFFF'
-
+        self.CALIBRATION_TABLE_NAME = self.OBJECT_TYPE + '_calibration_' + str(self.DEVICE_ID.hex())
 
     def register_write(self, address, value):
         self.ARRAY_TO_SEND = struct.pack('>HB', address, value)
@@ -175,21 +174,30 @@ class PowerSource(HostController):
             time.sleep(0.01)
 
     def calibration(self, force = None):
-        if not self.DB_CONNECTOR.check_if_table_exists(self.CALIBRATION_TABLE_NAME):
-            self.DB_CONNECTOR.open_connection_to_db('local_data_storage')
-            query = 'CREATE TABLE ['+self.CALIBRATION_TABLE_NAME+']'
-            self.DB_CONNECTOR.cursor_create()
-            self.DB_CONNECTOR.CURSOR.execute(query)
-            self.DB_CONNECTOR.commit()
-            self.DB_CONNECTOR.cursor_kill()
-            self.DB_CONNECTOR.close_connection_to_db()
+        self.DB_CONNECTOR.open_connection_to_db('local_data_storage')
+        self.DB_CONNECTOR.cursor_create()
+
+        self.DB_CONNECTOR.CURSOR.execute('DROP TABLE IF EXISTS ' + self.CALIBRATION_TABLE_NAME)
+        self.DB_CONNECTOR.CONNECTOR.commit()
+        self.DB_CONNECTOR.CURSOR.execute('CREATE TABLE '+self.CALIBRATION_TABLE_NAME+' (V_SET INT(1),V_GET INT(1))')
+        self.DB_CONNECTOR.CONNECTOR.commit()
+
 
         results = []
         start = time.time()
-        for value in range(0, 10):
+        for value in range(0, 4096):
             self.DAC.set_voltage(0,value)
             read_voltage = self.ADC.get_voltage(0)*2
-            results.append([value,read_voltage])
+            results.append((value,read_voltage))
         end = time.time()
         print('Calibration completed! Time to calibrate: ' + str((end - start)))
+
+        query = 'INSERT INTO '+self.CALIBRATION_TABLE_NAME+'(V_SET,V_GET)' \
+                'VALUES(%s,%s)'
+
+        self.DB_CONNECTOR.CURSOR.executemany(query, results)
+        self.DB_CONNECTOR.CONNECTOR.commit()
+
+        self.DB_CONNECTOR.cursor_kill()
+        self.DB_CONNECTOR.close_connection_to_db()
         print(results)

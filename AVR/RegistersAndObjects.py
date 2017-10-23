@@ -121,7 +121,7 @@ class SPI(object):
 
 class ADC(object):
 
-    def __init__(self, adch, adcl, adcsra, admux, acsr, adcgpio, bitmap, vref = 2560):
+    def __init__(self, adch, adcl, adcsra, admux, acsr, adcgpio, bitmap, vref = 2.560):
         self.ADCH_REG = adch
         self.ADCL_REG = adcl
         self.ADCSRA_REG = adcsra
@@ -144,19 +144,19 @@ class ADC(object):
             )
         )
 
-    def get_voltage(self, chanel):
+    def get_voltage(self, chanel, iterations=4):
         chanel &= 0x7 # of ‘CHANEL’ between 0 and 7
         self.ADMUX_REG.clear((1<<self.BITMAP.ADMUX.MUX0)|(1<<self.BITMAP.ADMUX.MUX1)|(1<<self.BITMAP.ADMUX.MUX2))
         self.ADMUX_REG.set(chanel)
         result = 0
 
-        for iteration in range(0,4):
+        for iteration in range(0,iterations):
             self.ADCSRA_REG.set(1<<self.BITMAP.ADCSRA.ADSC)
             adcl = self.ADCL_REG.read()
             adch = self.ADCH_REG.read()
-            result = result + (((adcl | (adch << 8)) * self.VREF) / 0x3FF)
+            result = result + (((adcl | (adch << 8)) / 0x3FF) *  self.VREF)
 
-        result = result / 4
+        result = result / iterations
 
-        return int(result)
+        return float(result)
 

@@ -2,6 +2,7 @@ import struct
 import traceback
 import time
 import uuid
+import numpy as np
 from enum import IntEnum
 from HostController import HostController, DevicePrefixes
 from AVR import RegistersAndObjects
@@ -36,7 +37,6 @@ class PowerSource(HostController):
             raise Exception('Device addresses can only be in 0x0:0xF range! Get address of: ' + str(hex(address)))
         else:
             self.ADDRESS = self.DEVICE_ADDRESS_PREFIX | address
-
 
         self.CURRENT_LIMIT = 0
         self.VOLTAGE_SET = 0
@@ -120,6 +120,9 @@ class PowerSource(HostController):
         self.DAC = DAC(spi_port=self.SPI, gpio_port=self.GPIOC, bitmap=BitMap)
         self.ADC = RegistersAndObjects.ADC(ADCH,ADCL,ADCSRA,ADMUX,ACSR,self.GPIOA, BitMap)
 
+        self.GPIOD.DDR_REG.set(  1 << BitMap.PIND.PIND7)
+        self.GPIOD.PORT_REG.set( 1 << BitMap.PIND.PIND7)
+
         self.get_device_id()
         self.CALIBRATION_TABLE_NAME = self.OBJECT_TYPE + '_calibration_' + str(self.DEVICE_ID.hex())
 
@@ -179,25 +182,76 @@ class PowerSource(HostController):
 
         self.DB_CONNECTOR.CURSOR.execute('DROP TABLE IF EXISTS ' + self.CALIBRATION_TABLE_NAME)
         self.DB_CONNECTOR.CONNECTOR.commit()
-        self.DB_CONNECTOR.CURSOR.execute('CREATE TABLE '+self.CALIBRATION_TABLE_NAME+' (V_SET INT(1),V_GET INT(1))')
+        self.DB_CONNECTOR.CURSOR.execute('CREATE TABLE '+self.CALIBRATION_TABLE_NAME+' (V_SET DECIMAL(6,4),V_GET DECIMAL(6,4))')
         self.DB_CONNECTOR.CONNECTOR.commit()
-
 
         results = []
         start = time.time()
+        x = np.arange(0,4096)
+        y = np.array([])
+
         for value in range(0, 4096):
             self.DAC.set_voltage(0,value)
-            read_voltage = self.ADC.get_voltage(0)*2
-            results.append((value,read_voltage))
+            read_voltage = self.ADC.get_voltage(0)
+            results.append((float(value/2000),read_voltage))
+            y = np.append(y,read_voltage)
         end = time.time()
+        self.DAC.clear()
         print('Calibration completed! Time to calibrate: ' + str((end - start)))
+
+        calibration_func = np.polyfit(x, y, 1)
+        polynomial = np.poly1d(calibration_func)
+
+        for value in range(4096, 5120):
+            results.append((float(value/2000), float(polynomial(value))))
 
         query = 'INSERT INTO '+self.CALIBRATION_TABLE_NAME+'(V_SET,V_GET)' \
                 'VALUES(%s,%s)'
 
         self.DB_CONNECTOR.CURSOR.executemany(query, results)
         self.DB_CONNECTOR.CONNECTOR.commit()
-
         self.DB_CONNECTOR.cursor_kill()
         self.DB_CONNECTOR.close_connection_to_db()
-        print(results)
+
+    def measure(self, chanel, division_coefficient):
+        value = self.ADC.get_voltage(chanel=chanel, iterations=10)
+        self.DB_CONNECTOR.open_connection_to_db('local_data_storage')
+        self.DB_CONNECTOR.cursor_create()
+        self.DB_CONNECTOR.CURSOR.execute(
+            '''SELECT AVG(V_SET) AS RESULT FROM ( SELECT V_SET FROM '''
+            +self.CALIBRATION_TABLE_NAME+
+            ''' ORDER BY ABS(V_GET - '''
+            +str("%.4f" % value)+
+            ''') ASC LIMIT 10 ) avgs''')
+        data = self.DB_CONNECTOR.CURSOR.fetchone()
+        return("%.4f" % (data[0]* division_coefficient))
+
+    def measure_voltage(self):
+        voltage = self.measure(chanel=3, division_coefficient=8)
+        return voltage
+
+    def measure_current(self):
+        current = self.measure(chanel=2, division_coefficient=2)
+
+    def set_voltage(self, voltage):
+        self.VOLTAGE_SET = voltage
+        value = ((self.VOLTAGE_SET - 0.1 )/ 4.97)
+        self.DAC.set_voltage(chanel=0, data=value)
+        self.turn_on()
+        time.sleep(0.1)
+
+        while abs(float(self.measure_voltage()) - self.VOLTAGE_SET) > 0.015:
+            print(abs(float(self.measure_voltage()) - self.VOLTAGE_SET))
+            value += 0.004
+            self.DAC.set_voltage(chanel=0,data=value)
+            time.sleep(0.1)
+
+    def set_current(self, current):
+        self.CURRENT_LIMIT = current
+
+
+    def turn_off(self):
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
+
+    def turn_on(self):
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND7)

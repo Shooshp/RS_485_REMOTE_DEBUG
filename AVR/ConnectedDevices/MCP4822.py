@@ -11,10 +11,17 @@ class MCP4822(object):
         self.LDAC.PORT_REG.set(1 << self.BITMAP.PINC.PINC6)
 
     def set_voltage(self, chanel, data):
+        voltage = data
+
+        if voltage > 4.096:
+            voltage = 4.096
+
+        voltage = int(voltage *1000)
+
         if chanel:
-            self.VALUE = data | 0x9000
+            self.VALUE = voltage | 0x9000
         else:
-            self.VALUE = data | 0x1000
+            self.VALUE = voltage | 0x1000
 
         self.SPI.select()
         self.SPI.write_byte(0xFF & (self.VALUE>>8))
@@ -23,3 +30,7 @@ class MCP4822(object):
 
         self.LDAC.PORT_REG.clear(1 << self.BITMAP.PINC.PINC6)
         self.LDAC.PORT_REG.set(1 << self.BITMAP.PINC.PINC6)
+
+    def clear(self):
+        self.set_voltage(0,0)
+        self.set_voltage(1,0)

@@ -27,10 +27,6 @@ class DataBaseCommunicator(object):
                 user = self.USER,
                 password = self.PASSWORD
             )
-            if  self.CONNECTOR.is_connected():
-                print('Connection to Data Base established')
-            else:
-                print('Connection failed')
 
         except Error as error:
             print(error)

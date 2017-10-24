@@ -9,14 +9,14 @@ class SerialCommunicator(object):
 
     def __init__(self,
                  port='/dev/ttyS0',
-                 baudrate = 1000000,
-                 parity = serial.PARITY_NONE,
-                 stopbits = serial.STOPBITS_ONE,
-                 bytesize = serial.EIGHTBITS,
-                 timeout = 0.005,
-                 en_485_pin = 12,
-                 en_tx_pin = 16,
-                 crc_constant = 0xA001
+                 baudrate=1000000,
+                 parity=serial.PARITY_NONE,
+                 stopbits=serial.STOPBITS_ONE,
+                 bytesize=serial.EIGHTBITS,
+                 timeout=0.005,
+                 en_485_pin=12,
+                 en_tx_pin=16,
+                 crc_constant=0xA001
                  ):
 
         self.PORT = port
@@ -44,11 +44,9 @@ class SerialCommunicator(object):
 
         GPIO.setmode(GPIO.BOARD)
         GPIO.setwarnings(False)
-        GPIO.setup(self.EN_485_PIN , GPIO.OUT, initial=GPIO.HIGH)
+        GPIO.setup(self.EN_485_PIN, GPIO.OUT, initial=GPIO.HIGH)
         GPIO.setup(self.EN_TX_PIN, GPIO.OUT, initial=GPIO.HIGH)
-
         self.msleep(5)
-
 
     def write_to_serial(self, host):
 
@@ -62,7 +60,6 @@ class SerialCommunicator(object):
                            + self.HOST.ARRAY_TO_SEND
             self.CURRENT_CRC = CRC16().calculate(self.BUFFER_ARRAY)
             self.BUFFER_ARRAY = self.BUFFER_ARRAY + struct.pack('>H', self.CURRENT_CRC)
-
 
             self.RS_485.write(self.BUFFER_ARRAY)
             self.delay_calculate()
@@ -133,7 +130,7 @@ class SerialCommunicator(object):
                   + str(self.HOST.INSTANCE_NAME) + ' at address '
                   + str(hex(self.HOST.ADDRESS)) + '!')
 
-    def chain_scan(self,device_list,trys = 5):
+    def chain_scan(self, device_list, trys=5):
         hosts = []
         for device in device_list:
             for address_bit in range(0,15):
@@ -142,7 +139,7 @@ class SerialCommunicator(object):
                 command = 0x0
                 status = 0
                 error_counter = 0
-                self.BUFFER_ARRAY = struct.pack('BBB', address, command, len(ARRAY_TO_SEND))+ ARRAY_TO_SEND
+                self.BUFFER_ARRAY = struct.pack('BBB', address, command, len(ARRAY_TO_SEND)) + ARRAY_TO_SEND
                 self.CURRENT_CRC = CRC16().calculate(self.BUFFER_ARRAY)
                 self.BUFFER_ARRAY = self.BUFFER_ARRAY + struct.pack('>H', self.CURRENT_CRC)
 
@@ -165,7 +162,6 @@ class SerialCommunicator(object):
         print(hosts)
         print(str(len(hosts)) + ' host was found!')
         return hosts
-
 
     def wait_for_an_answer(self):
         GPIO.output(self.EN_TX_PIN, 0)

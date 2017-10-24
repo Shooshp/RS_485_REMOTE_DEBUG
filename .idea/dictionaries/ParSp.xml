@@ -1,15 +1,134 @@
 <component name="ProjectDictionaryState">
   <dictionary name="ParSp">
     <words>
+      <w>acbg</w>
+      <w>acic</w>
+      <w>acie</w>
+      <w>acis</w>
+      <w>acsr</w>
+      <w>adate</w>
+      <w>adch</w>
+      <w>adcl</w>
+      <w>adcsra</w>
       <w>addr</w>
+      <w>adie</w>
+      <w>adif</w>
+      <w>adlar</w>
+      <w>admux</w>
+      <w>adps</w>
+      <w>adsc</w>
+      <w>assr</w>
       <w>atmega</w>
       <w>baudrate</w>
+      <w>blbset</w>
+      <w>borf</w>
       <w>bytesize</w>
+      <w>cpha</w>
+      <w>cpol</w>
+      <w>ddra</w>
+      <w>ddrb</w>
+      <w>ddrc</w>
+      <w>ddrd</w>
+      <w>dord</w>
+      <w>eear</w>
+      <w>eearh</w>
+      <w>eearl</w>
+      <w>eecr</w>
+      <w>eedr</w>
+      <w>eemwe</w>
+      <w>eere</w>
+      <w>eewe</w>
+      <w>extrf</w>
       <w>fpga</w>
+      <w>gicr</w>
+      <w>gifr</w>
       <w>gpio</w>
+      <w>gpioa</w>
+      <w>gpiob</w>
+      <w>gpioc</w>
+      <w>gpiod</w>
+      <w>icnc</w>
+      <w>intf</w>
+      <w>ivce</w>
+      <w>ivsel</w>
+      <w>jtrf</w>
+      <w>ldac</w>
+      <w>mcucr</w>
+      <w>mcucsr</w>
+      <w>miso</w>
+      <w>mosi</w>
+      <w>mpcm</w>
       <w>msleep</w>
+      <w>mstr</w>
+      <w>ocdr</w>
+      <w>ocie</w>
+      <w>osccal</w>
+      <w>pgers</w>
+      <w>pgwrt</w>
+      <w>pina</w>
+      <w>pinb</w>
+      <w>pinc</w>
+      <w>pind</w>
+      <w>porf</w>
+      <w>porta</w>
+      <w>portb</w>
+      <w>portc</w>
+      <w>portd</w>
+      <w>rwwsb</w>
+      <w>rwwsre</w>
+      <w>rxcie</w>
+      <w>rxen</w>
+      <w>sfior</w>
+      <w>spcr</w>
+      <w>spdr</w>
+      <w>spie</w>
+      <w>spif</w>
+      <w>spmcsr</w>
+      <w>spmen</w>
+      <w>spmie</w>
+      <w>spsr</w>
       <w>stopbits</w>
+      <w>tccr</w>
+      <w>tcnt</w>
+      <w>ticie</w>
+      <w>tifr</w>
+      <w>timsk</w>
+      <w>toie</w>
+      <w>twar</w>
+      <w>twbr</w>
+      <w>twcr</w>
+      <w>twdr</w>
+      <w>twea</w>
+      <w>twen</w>
+      <w>twgce</w>
+      <w>twie</w>
+      <w>twint</w>
+      <w>twps</w>
+      <w>twsr</w>
+      <w>twsta</w>
+      <w>twsto</w>
+      <w>twwc</w>
+      <w>txcie</w>
+      <w>txen</w>
+      <w>ubrr</w>
+      <w>ubrrh</w>
+      <w>ubrrl</w>
+      <w>ucpol</w>
+      <w>ucsra</w>
+      <w>ucsrb</w>
+      <w>ucsrc</w>
+      <w>ucsz</w>
+      <w>udre</w>
+      <w>udrie</w>
+      <w>umsel</w>
+      <w>ursel</w>
+      <w>usbs</w>
       <w>usleep</w>
+      <w>vref</w>
+      <w>wcol</w>
+      <w>wdrf</w>
+      <w>wdtcr</w>
+      <w>wdtoe</w>
     </words>
   </dictionary>
 </component>

@@ -1,5 +1,5 @@
-from AVR import Atmega16RegisterMap as AVR
 import numpy as np
+from DataBase.ORMDataBase import device_types, db, power_source_calibration as calib
 from PowerSourceControl import PowerSource
 from SerialCommunications import SerialCommunicator
 from DataBase.DataBaseConnector import DataBaseCommunicator
@@ -15,8 +15,12 @@ array = np.arange(0, 4, 0.1)
 
 VCC_INT = PowerSource(address=0xA, communicator=RS485, db_connector=DB_CONNECTOR)
 
-VCC_INT.set_current(current=1)
-VCC_INT.set_voltage(voltage=5.5)
+db.connect()
 
-for i in range(0, 20):
-    VCC_INT.write_status_to_db()
+print(hex(device_types.get(TYPE = 'PowerSource').ADDRESS_PREFIX))
+
+for type in device_types.select():
+    print(type.TYPE)
+
+for value in calib.select().where((calib.V_GET > '0.2')&(calib.V_GET < '0.21')):
+    print(value.V_SET)

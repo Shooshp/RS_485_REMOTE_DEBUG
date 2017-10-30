@@ -4,6 +4,7 @@ import time
 import uuid
 import numpy as np
 from enum import IntEnum
+from DataBase.ORMDataBase import devices_on_tester, power_source_calibration, power_source_measurement
 from HostController import HostController, DevicePrefixes
 from AVR import RegistersAndObjects
 from AVR import Atmega16RegisterMap as BitMap
@@ -20,9 +21,9 @@ class PowerSourceCommands(IntEnum):
 
 
 class PowerSource(HostController):
-    def __init__(self, address, communicator, db_connector):
+    def __init__(self, address, communicator):
 
-        super().__init__(communicator=communicator, db_connector=db_connector)
+        super().__init__(communicator=communicator)
         if self.INSTANCE_NAME is None:
             (filename, line_number, function_name, text) = traceback.extract_stack()[-2]
             self.INSTANCE_NAME = text[:text.find('=')].strip()
@@ -42,6 +43,7 @@ class PowerSource(HostController):
 
         self.CURRENT_LIMIT = 0
         self.VOLTAGE_SET = 0
+        self.ZERO_ERROR = 0
 
         ADCL = RegistersAndObjects.Register(self)
         ADCH = RegistersAndObjects.Register(self)
@@ -75,6 +77,11 @@ class PowerSource(HostController):
             print('New device was detected, with address: ' + str(hex(self.ADDRESS)) + ' id was assigned: '
                   + str(self.DEVICE_ID))
 
+        devices_on_tester.get_or_create(
+            devices_on_tester_uuid = self.DEVICE_ID.hex(),
+            devices_on_tester_type = str(self.OBJECT_TYPE)
+        )
+
         self.SPI = RegistersAndObjects.SPI(
             spcr=SPCR,
             spsr=SPSR,
@@ -96,7 +103,6 @@ class PowerSource(HostController):
         self.GPIOD.DDR_REG.set(1 << BitMap.PIND.PIND7)
         self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
 
-        self.get_device_id()
         self.CALIBRATION_ID = self.OBJECT_TYPE + '_calibration_' + str(self.DEVICE_ID.hex())
 
     def register_write(self, address, value):
@@ -150,12 +156,8 @@ class PowerSource(HostController):
             time.sleep(0.01)
 
     def calibration(self):
-        self.DB_CONNECTOR.open_connection_to_db('local_data_storage')
-        self.DB_CONNECTOR.cursor_create()
-
-        query = "DELETE FROM power_source_calibration WHERE UUID = '%s'" % str(self.DEVICE_ID.hex())
-        self.DB_CONNECTOR.CURSOR.execute(query)
-        self.DB_CONNECTOR.CONNECTOR.commit()
+        power_source_calibration.delete().where(
+            power_source_calibration.power_source_calibration_uuid == self.DEVICE_ID.hex()).execute()
 
         results = []
         start = time.time()
@@ -178,28 +180,39 @@ class PowerSource(HostController):
         for value in x:
             results.append((float(value/2), float(polynomial(value))))
 
-        self.DB_CONNECTOR.CURSOR.executemany(
-            "INSERT INTO power_source_calibration (UUID, V_SET, V_GET) VALUES ('"
-            + str(self.DEVICE_ID.hex()) +
-            "', %s, %s)", results)
-        self.DB_CONNECTOR.CONNECTOR.commit()
-        self.DB_CONNECTOR.cursor_kill()
-        self.DB_CONNECTOR.close_connection_to_db()
+        for i in range(0, 5120):
+            power_source_calibration.insert(
+                power_source_calibration_uuid = self.DEVICE_ID.hex(),
+                voltage_set = "%.4f" % results[i][0],
+                voltage_get = "%.4f" % results[i][1]).execute()
+
+    def get_zero_error(self):
+        x = np.arange(0, 2.560, 0.0005)
+        y = np.array([])
+
+        for value in  power_source_calibration.select().where(
+            power_source_calibration.power_source_calibration_uuid == self.DEVICE_ID.hex()).order_by(
+            power_source_calibration.voltage_set.asc()
+        ):
+            temp = float(value.voltage_get)
+            y = np.append(y,temp)
+
+        calibration_func = np.polyfit(x, y, 1)
+        self.ZERO_ERROR = calibration_func[1]
 
     def measure(self, chanel, division_coefficient):
         value = self.ADC.get_voltage(chanel=chanel, iterations=5)
-        self.DB_CONNECTOR.open_connection_to_db('local_data_storage')
-        self.DB_CONNECTOR.cursor_create()
+        query = power_source_calibration.select(power_source_calibration.voltage_set).where(
+            power_source_calibration.power_source_calibration_uuid == self.DEVICE_ID.hex() and
+            ((power_source_calibration.voltage_get > value - 0.005) &
+            (power_source_calibration.voltage_get < value + 0.005))).order_by(power_source_calibration.voltage_get.asc()).\
+            limit(20).execute()
 
-        query = "SELECT AVG(V_SET) FROM( SELECT V_SET FROM power_source_calibration WHERE UUID = '"\
-                 + str(self.DEVICE_ID.hex()) + "' ORDER BY ABS(V_GET - "\
-                 + str("%.4f" % value) + ") ASC LIMIT 10 ) avgs"
+        result = []
+        for value in query:
+            result.append(value.voltage_set)
 
-        self.DB_CONNECTOR.CURSOR.execute(query)
-        data = self.DB_CONNECTOR.CURSOR.fetchone()
-        self.DB_CONNECTOR.cursor_kill()
-        self.DB_CONNECTOR.close_connection_to_db()
-        return("%.4f" % (data[0] * division_coefficient))
+        return("%.4f" % ((sum(result)/len(result)) * division_coefficient))
 
     def measure_voltage(self):
         voltage = self.measure(chanel=3, division_coefficient=8)
@@ -209,39 +222,30 @@ class PowerSource(HostController):
         current = self.measure(chanel=2, division_coefficient=2)
         return current
 
+    def measure_remperature(self):
+        temperature = self.measure()
+
     def write_status_to_db(self):
-        voltage = self.measure_voltage()
-        current = self.measure_current()
-
-        self.DB_CONNECTOR.open_connection_to_db('local_data_storage')
-        self.DB_CONNECTOR.cursor_create()
-
-        query = "INSERT INTO power_source_measurement (UUID, VOLTAGE, CURRENT) VALUES ('"\
-                + str(self.DEVICE_ID.hex()) +\
-                "', " \
-                + str(voltage) + \
-                ", " \
-                + str(current) + ")"
-
-        self.DB_CONNECTOR.CURSOR.execute(query)
-        self.DB_CONNECTOR.CONNECTOR.commit()
-
-        self.DB_CONNECTOR.cursor_kill()
-        self.DB_CONNECTOR.close_connection_to_db()
+        power_source_measurement.insert(
+            power_source_measurement_uuid = self.DEVICE_ID.hex(),
+            measurement_voltage = self.measure_voltage(),
+            measurement_current = self.measure_current()
+        ).execute()
 
     def set_voltage(self, voltage):
         self.VOLTAGE_SET = voltage
+        self.DAC.set_voltage(chanel=0, data=0)
         value = ((self.VOLTAGE_SET - 0.1) / 4.97)
         self.DAC.set_voltage(chanel=0, data=value)
         self.turn_on()
-        time.sleep(0.1)
+        time.sleep(0.3)
 
-        while (self.VOLTAGE_SET - float(self.measure_voltage())) > 0.015:
+        while ((self.VOLTAGE_SET+self.ZERO_ERROR) - float(self.measure_voltage())) > 0.005:
             value += 0.004
             self.DAC.set_voltage(chanel=0, data=value)
             time.sleep(0.1)
 
-        while (self.VOLTAGE_SET - float(self.measure_voltage())) > 0.005:
+        while ((self.VOLTAGE_SET+self.ZERO_ERROR) - float(self.measure_voltage())) > 0.001:
             value += 0.001
             self.DAC.set_voltage(chanel=0, data=value)
             time.sleep(0.1)

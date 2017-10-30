@@ -3,7 +3,7 @@ import time
 import RPi.GPIO as GPIO
 import struct
 from PyCRC.CRC16 import CRC16
-
+from DataBase.ORMDataBase import device_index
 
 class SerialCommunicator(object):
 
@@ -130,11 +130,12 @@ class SerialCommunicator(object):
                   + str(self.HOST.INSTANCE_NAME) + ' at address '
                   + str(hex(self.HOST.ADDRESS)) + '!')
 
-    def chain_scan(self, device_list, trys=5):
+    def chain_scan(self, trys=5):
         hosts = []
-        for device in device_list:
+
+        for device in device_index.select():
             for address_bit in range(0,15):
-                address = device_list(device) | address_bit
+                address = device.address_prefix | address_bit
                 ARRAY_TO_SEND = struct.pack('>H', 0x0)
                 command = 0x0
                 status = 0
@@ -158,7 +159,7 @@ class SerialCommunicator(object):
                         error_counter += 1
 
                 if status:
-                    hosts.append([device.name, hex(address)])
+                    hosts.append([device.device_type, hex(address)])
         print(hosts)
         print(str(len(hosts)) + ' host was found!')
         return hosts

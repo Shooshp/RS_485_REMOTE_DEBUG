@@ -11,10 +11,8 @@ class HostController(object):
     def __init__(self,
                  address=None,
                  communicator=None,
-                 db_connector=None
                  ):
 
-        self.DB_CONNECTOR = db_connector
         self.COMMUNICATOR = communicator
         self.ADDRESS = address
         self.DEVICE_ADDRESS_PREFIX = None

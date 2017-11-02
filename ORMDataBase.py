@@ -22,6 +22,7 @@ class devices_on_tester(MySQLModel):
         db_column='devices_on_tester_type',
         to_field='device_type_id')
     devices_on_tester_add_at = DateTimeField()
+    devices_on_tester_address = IntegerField(null = False, unique = True)
 
 class power_source_calibration(MySQLModel):
     power_source_calibration_id = IntegerField(primary_key = True, null  = False, unique = True)
@@ -42,3 +43,15 @@ class power_source_measurement(MySQLModel):
     measurement_current = DecimalField(max_digits=6, decimal_places=4)
     measurement_temperature = DecimalField(max_digits=6, decimal_places=4)
     measured_at = DateTimeField()
+
+class power_source_settings(MySQLModel):
+    power_source_settings_id = IntegerField(primary_key = True, null  = False, unique = True)
+    power_source_setting_uuid = ForeignKeyField(
+        devices_on_tester,
+        db_column='power_source_setting_uuid',
+        to_field='devices_on_tester_uuid')
+    power_source_settings_voltage = DecimalField(max_digits=6, decimal_places=4)
+    power_source_settings_current = DecimalField(max_digits=6, decimal_places=4)
+    power_source_settings_power = DecimalField(max_digits=6, decimal_places=4)
+    power_source_settings_calibration_set = IntegerField()
+    power_source_settings_on_off = IntegerField()

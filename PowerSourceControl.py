@@ -1,14 +1,16 @@
 import struct
-import traceback
 import time
+import traceback
 import uuid
-import numpy as np
 from enum import IntEnum
-from DataBase.ORMDataBase import devices_on_tester, power_source_calibration, power_source_measurement
-from HostController import HostController, DevicePrefixes
-from AVR import RegistersAndObjects
+
+import numpy as np
+
 from AVR import Atmega16RegisterMap as BitMap
+from AVR import RegistersAndObjects
 from AVR.ConnectedDevices.MCP4822 import MCP4822 as DAC
+from HostController import HostController, DevicePrefixes
+from ORMDataBase import devices_on_tester, power_source_calibration, power_source_measurement, power_source_settings
 
 
 class PowerSourceCommands(IntEnum):
@@ -222,7 +224,7 @@ class PowerSource(HostController):
         current = self.measure(chanel=2, division_coefficient=2)
         return current
 
-    def measure_remperature(self):
+    def measure_temperature(self):
         temperature = self.measure()
 
     def write_status_to_db(self):
@@ -260,3 +262,9 @@ class PowerSource(HostController):
 
     def turn_on(self):
         self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND7)
+
+    def check_settings_from_db(self):
+        settings = power_source_settings.select().where(
+            power_source_settings.power_source_setting_uuid == self.DEVICE_ID.hex())
+
+

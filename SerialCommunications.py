@@ -1,9 +1,12 @@
-import serial
-import time
-import RPi.GPIO as GPIO
 import struct
+import time
+
+import RPi.GPIO as GPIO
+import serial
 from PyCRC.CRC16 import CRC16
-from DataBase.ORMDataBase import device_index
+
+from ORMDataBase import device_index
+
 
 class SerialCommunicator(object):
 

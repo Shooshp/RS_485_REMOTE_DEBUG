@@ -1,10 +1,5 @@
-import struct
-import time
-
-import RPi.GPIO as GPIO
-import serial
+import struct, time, serial, RPi.GPIO as GPIO
 from PyCRC.CRC16 import CRC16
-
 from ORMDataBase import device_index
 
 

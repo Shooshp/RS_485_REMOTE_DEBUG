@@ -1,5 +1,4 @@
 
-
 class MCP4822(object):
     def __init__(self, spi_port, gpio_port, bitmap):
         self.SPI = spi_port

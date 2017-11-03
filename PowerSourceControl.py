@@ -1,13 +1,6 @@
-import struct
-import time
-import traceback
-import uuid
+import struct, time, traceback, uuid, numpy as np
 from enum import IntEnum
-
-import numpy as np
-
-from AVR import Atmega16RegisterMap as BitMap
-from AVR import RegistersAndObjects
+from AVR import Atmega16RegisterMap as BitMap, RegistersAndObjects
 from AVR.ConnectedDevices.MCP4822 import MCP4822 as DAC
 from HostController import HostController, DevicePrefixes
 from ORMDataBase import devices_on_tester, power_source_calibration, power_source_measurement, power_source_settings

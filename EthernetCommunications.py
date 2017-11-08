@@ -1,9 +1,16 @@
-import asyncore, socket, threading
+import asyncore
+import socket
+import threading
+
 
 class ReadHandler(asyncore.dispatcher_with_send):
     def handle_read(self):
         data = self.recv(1450)
-        print("Get data ", data)
+        if data:
+            if not EventManager.data:
+                EventManager.data = data
+            else:
+                print('Busy!')
 
 
 class ListenerServer(threading.Thread, asyncore.dispatcher):
@@ -20,7 +27,7 @@ class ListenerServer(threading.Thread, asyncore.dispatcher):
     def run(self):
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
-        self.bind((self.host,self.port))
+        self.bind((self.host, self.port))
         self.listen(5)
         asyncore.loop()
 
@@ -30,3 +37,7 @@ class ListenerServer(threading.Thread, asyncore.dispatcher):
             connected_socket, address = accept
             print('>>> Connected with ' + address[0] + ':' + str(address[1]))
             ReadHandler(connected_socket)
+
+
+class EventManager(object):
+    data = 0

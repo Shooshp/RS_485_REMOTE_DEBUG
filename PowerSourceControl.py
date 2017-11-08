@@ -3,7 +3,7 @@ from enum import IntEnum
 from AVR import Atmega16RegisterMap as BitMap, RegistersAndObjects
 from AVR.ConnectedDevices.MCP4822 import MCP4822 as DAC
 from HostController import HostController, DevicePrefixes
-from ORMDataBase import devices_on_tester, power_source_calibration, power_source_measurement, power_source_settings
+from ORMDataBase import power_source_calibration, power_source_measurement, power_source_settings
 
 
 class PowerSourceCommands(IntEnum):
@@ -36,8 +36,6 @@ class PowerSource(HostController):
         else:
             self.ADDRESS = self.DEVICE_ADDRESS_PREFIX | address
 
-        self.CURRENT_LIMIT = 0
-        self.VOLTAGE_SET = 0
         self.ZERO_ERROR = 0
 
         ADCL = RegistersAndObjects.Register(self)
@@ -66,26 +64,19 @@ class PowerSource(HostController):
         self.GPIOC = RegistersAndObjects.GPIO(ddr=DDRC, port=PORTC, pin=PINC)
         self.GPIOD = RegistersAndObjects.GPIO(ddr=DDRD, port=PORTD, pin=PIND)
 
-        if self.get_device_id():
-            self.set_device_id()
-            self.get_device_id()
-            print('New device was detected, with address: ' + str(hex(self.ADDRESS)) + ' id was assigned: '
-                  + str(self.DEVICE_ID))
-
-        devices_on_tester.get_or_create(
-            devices_on_tester_uuid = self.DEVICE_ID.hex(),
-            devices_on_tester_type = str(self.OBJECT_TYPE)
-        )
+        self.get_id()
 
         self.SPI = RegistersAndObjects.SPI(
             spcr=SPCR,
             spsr=SPSR,
             spdr=SPDR,
             spi_gpio=self.GPIOB)
+
         self.DAC = DAC(
             spi_port=self.SPI,
             gpio_port=self.GPIOC,
             bitmap=BitMap)
+
         self.ADC = RegistersAndObjects.ADC(
             adch=ADCH,
             adcl=ADCL,
@@ -98,7 +89,19 @@ class PowerSource(HostController):
         self.GPIOD.DDR_REG.set(1 << BitMap.PIND.PIND7)
         self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
 
-        self.CALIBRATION_ID = self.OBJECT_TYPE + '_calibration_' + str(self.DEVICE_ID.hex())
+        power_source_settings.get_or_create(
+            power_source_setting_uuid = self.DEVICE_ID.hex(),
+            power_source_settings_address = self.ADDRESS,
+            power_source_settings_voltage = 0,
+            power_source_settings_current = 0,
+            power_source_settings_power = 0,
+            power_source_settings_calibration_set = 0
+        )
+        self.VOLTAGE = 0
+        self.CURRENT = 0
+        self.POWER = 0
+
+
 
     def register_write(self, address, value):
         self.ARRAY_TO_SEND = struct.pack('>HB', address, value)
@@ -121,38 +124,8 @@ class PowerSource(HostController):
         self.COMMAND = PowerSourceCommands.register_clear
         self.write()
 
-    def get_device_id(self):
-        self.DEVICE_ID = bytearray()  # Clean this just in case
-        status = 0
-        for device_id_byte in range(0, 16):
-            self.ARRAY_TO_SEND = struct.pack('>H', device_id_byte)
-            self.COMMAND = PowerSourceCommands.get_id
-            self.read()
-            self.DEVICE_ID = self.DEVICE_ID + bytes([self.ARRAY_TO_RECEIVE])
-            if self.ARRAY_TO_RECEIVE == 0xFF:
-                status += 1
-        if status != 16:
-            status = 0
-        return status
-
-    def set_device_id(self):
-        unique_id = uuid.uuid4()
-        for device_id_byte in range(0, 16):
-            self.ARRAY_TO_SEND = struct.pack('>HB', device_id_byte, unique_id.bytes[device_id_byte])
-            self.COMMAND = PowerSourceCommands.set_id
-            self.write()
-            time.sleep(0.01)
-
-    def clear_device_id(self):
-        for device_id_byte in range(0, 16):
-            self.ARRAY_TO_SEND = struct.pack('>HB', device_id_byte, 0xFF)
-            self.COMMAND = PowerSourceCommands.set_id
-            self.write()
-            time.sleep(0.01)
-
     def calibration(self):
-        power_source_calibration.delete().where(
-            power_source_calibration.power_source_calibration_uuid == self.DEVICE_ID.hex()).execute()
+        power_source_calibration.clean_calibration(self.DEVICE_ID)
 
         results = []
         start = time.time()
@@ -196,12 +169,9 @@ class PowerSource(HostController):
         self.ZERO_ERROR = calibration_func[1]
 
     def measure(self, chanel, division_coefficient):
-        value = self.ADC.get_voltage(chanel=chanel, iterations=5)
-        query = power_source_calibration.select(power_source_calibration.voltage_set).where(
-            power_source_calibration.power_source_calibration_uuid == self.DEVICE_ID.hex() and
-            ((power_source_calibration.voltage_get > value - 0.005) &
-            (power_source_calibration.voltage_get < value + 0.005))).order_by(power_source_calibration.voltage_get.asc()).\
-            limit(20).execute()
+        query = power_source_calibration.get_approximate_value_list(
+            value=self.ADC.get_voltage(chanel=chanel, iterations=5),
+            device_uuid=self.DEVICE_ID.hex())
 
         result = []
         for value in query:
@@ -219,6 +189,7 @@ class PowerSource(HostController):
 
     def measure_temperature(self):
         temperature = self.measure()
+        return temperature
 
     def write_status_to_db(self):
         power_source_measurement.insert(
@@ -228,26 +199,26 @@ class PowerSource(HostController):
         ).execute()
 
     def set_voltage(self, voltage):
-        self.VOLTAGE_SET = voltage
+        self.VOLTAGE = voltage
         self.DAC.set_voltage(chanel=0, data=0)
-        value = ((self.VOLTAGE_SET - 0.1) / 4.97)
+        value = ((self.VOLTAGE - 0.1) / 4.97)
         self.DAC.set_voltage(chanel=0, data=value)
         self.turn_on()
         time.sleep(0.3)
 
-        while ((self.VOLTAGE_SET+self.ZERO_ERROR) - float(self.measure_voltage())) > 0.005:
+        while ((self.VOLTAGE+self.ZERO_ERROR) - float(self.measure_voltage())) > 0.005:
             value += 0.004
             self.DAC.set_voltage(chanel=0, data=value)
             time.sleep(0.1)
 
-        while ((self.VOLTAGE_SET+self.ZERO_ERROR) - float(self.measure_voltage())) > 0.001:
+        while ((self.VOLTAGE+self.ZERO_ERROR) - float(self.measure_voltage())) > 0.001:
             value += 0.001
             self.DAC.set_voltage(chanel=0, data=value)
             time.sleep(0.1)
 
     def set_current(self, current):
-        self.CURRENT_LIMIT = current
-        value = self.CURRENT_LIMIT * 1.3635
+        self.CURRENT = current
+        value = self.CURRENT * 1.3635
         self.DAC.set_voltage(chanel=1, data=value)
 
     def turn_off(self):

@@ -80,9 +80,9 @@ class power_source_settings(MySQLModel):
     power_source_settings_voltage = DecimalField(max_digits=6, decimal_places=4)
     power_source_settings_current = DecimalField(max_digits=6, decimal_places=4)
     power_source_settings_power = DecimalField(max_digits=6, decimal_places=4)
-    power_source_settings_calibration_set = IntegerField()
-    power_source_settings_on_off = BooleanField
-    power_source_settings_status = IntegerField(null=False)
+    power_source_settings_calibration = BooleanField()
+    power_source_settings_on_off = BooleanField()
+
 
 
 class power_source_task_list(MySQLModel):
@@ -102,6 +102,7 @@ class power_source_current_tasks(MySQLModel):
         db_column='power_source_current_task_name',
         to_field='power_source_task_name',
         related_name = 'task_name')
+    power_source_current_task_argument = DecimalField(max_digits=6, decimal_places=4)
     power_source_current_task_completed = BooleanField()
     power_source_current_task_begin_at = DateTimeField()
 

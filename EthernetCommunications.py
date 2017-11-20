@@ -92,6 +92,7 @@ class EventManager:
 
     PowerSourceStatus = "Idle"
     CurrentTaskId = 0
+    TaskArgument = 0
     Progress = 0
 
     @staticmethod
@@ -103,5 +104,6 @@ class EventManager:
         power_source_current_tasks.update(power_source_current_task_completed = True).\
             where(power_source_current_tasks.power_source_current_task_id == id)
         EventManager.CurrentTaskId = 0
+        EventManager.TaskArgument = 0
         EventManager.PowerSourceStatus = "Idle"
 

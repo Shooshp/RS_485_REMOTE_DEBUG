@@ -1,4 +1,4 @@
-import struct, time, traceback, uuid, numpy as np
+import struct, time, traceback, numpy as np
 from enum import IntEnum
 from AVR import Atmega16RegisterMap as BitMap, RegistersAndObjects
 from AVR.ConnectedDevices.MCP4822 import MCP4822 as DAC
@@ -89,26 +89,33 @@ class PowerSource(HostController):
         self.GPIOD.DDR_REG.set(1 << BitMap.PIND.PIND7)
         self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
 
-        power_source_settings.get_or_create(
-            power_source_setting_uuid = self.DEVICE_ID.hex(),
-            power_source_settings_address = self.ADDRESS,
-            power_source_settings_voltage = 12.435,
-            power_source_settings_current = 1.0530,
-            power_source_settings_power = 0,
-            power_source_settings_calibration_set = 0,
-            power_source_settings_on_off = False,
-            power_source_settings_status = 2
-        )
+        calibration_entries = power_source_calibration.select().\
+            where(power_source_calibration.power_source_calibration_uuid == self.DEVICE_ID.hex()).count()
+
+        self.isCalibrated = False
+        if  calibration_entries == 5120:
+            self.isCalibrated = True
+
         self.VOLTAGE = 0
         self.CURRENT = 0
         self.POWER = 0
-        self.IS_ON = 0
+        self.IS_ON = False
+
+        power_source_settings.get_or_create(
+            power_source_setting_uuid=self.DEVICE_ID.hex(),
+            power_source_settings_address=self.ADDRESS)
+
+        self.update_settings()
 
     def update_settings(self):
-        settings = power_source_settings.select().where(power_source_setting_uuid = self.DEVICE_ID.hex())
-        self.VOLTAGE = settings.power_source_settings_voltage
-        self.CURRENT = settings.power_source_settings_current
-        self.POWER = settings.power_source_settings_power
+        query =  power_source_settings.update(
+            power_source_settings_voltage=self.VOLTAGE,
+            power_source_settings_current=self.CURRENT,
+            power_source_settings_power=self.POWER,
+            power_source_settings_calibration=self.isCalibrated,
+            power_source_settings_on_off=self.IS_ON
+        ).where(power_source_settings.power_source_setting_uuid == self.DEVICE_ID.hex())
+        query.execute()
 
     def register_write(self, address, value):
         self.ARRAY_TO_SEND = struct.pack('>HB', address, value)
@@ -161,6 +168,9 @@ class PowerSource(HostController):
                 voltage_set = "%.4f" % results[i][0],
                 voltage_get = "%.4f" % results[i][1]).execute()
 
+        self.isCalibrated = True
+        self.update_settings()
+
     def get_zero_error(self):
         x = np.arange(0, 2.560, 0.0005)
         y = np.array([])
@@ -207,6 +217,7 @@ class PowerSource(HostController):
 
     def set_voltage(self, voltage):
         self.VOLTAGE = voltage
+        self.update_settings()
         self.DAC.set_voltage(chanel=0, data=0)
         value = ((self.VOLTAGE - 0.1) / 4.97)
         self.DAC.set_voltage(chanel=0, data=value)
@@ -225,13 +236,16 @@ class PowerSource(HostController):
 
     def set_current(self, current):
         self.CURRENT = current
+        self.update_settings()
         value = self.CURRENT * 1.3635
         self.DAC.set_voltage(chanel=1, data=value)
 
     def turn_off(self):
         self.IS_ON = False
+        self.update_settings()
         self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
 
     def turn_on(self):
         self.IS_ON = True
+        self.update_settings()
         self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND7)

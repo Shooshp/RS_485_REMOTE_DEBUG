@@ -92,16 +92,23 @@ class PowerSource(HostController):
         power_source_settings.get_or_create(
             power_source_setting_uuid = self.DEVICE_ID.hex(),
             power_source_settings_address = self.ADDRESS,
-            power_source_settings_voltage = 0,
-            power_source_settings_current = 0,
+            power_source_settings_voltage = 12.435,
+            power_source_settings_current = 1.0530,
             power_source_settings_power = 0,
-            power_source_settings_calibration_set = 0
+            power_source_settings_calibration_set = 0,
+            power_source_settings_on_off = False,
+            power_source_settings_status = 2
         )
         self.VOLTAGE = 0
         self.CURRENT = 0
         self.POWER = 0
+        self.IS_ON = 0
 
-
+    def update_settings(self):
+        settings = power_source_settings.select().where(power_source_setting_uuid = self.DEVICE_ID.hex())
+        self.VOLTAGE = settings.power_source_settings_voltage
+        self.CURRENT = settings.power_source_settings_current
+        self.POWER = settings.power_source_settings_power
 
     def register_write(self, address, value):
         self.ARRAY_TO_SEND = struct.pack('>HB', address, value)
@@ -222,13 +229,9 @@ class PowerSource(HostController):
         self.DAC.set_voltage(chanel=1, data=value)
 
     def turn_off(self):
+        self.IS_ON = False
         self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
 
     def turn_on(self):
+        self.IS_ON = True
         self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND7)
-
-    def check_settings_from_db(self):
-        settings = power_source_settings.select().where(
-            power_source_settings.power_source_setting_uuid == self.DEVICE_ID.hex())
-
-

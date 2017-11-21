@@ -7,21 +7,24 @@ from  ORMDataBase import power_source_current_tasks
 class ReadHandler(asyncore.dispatcher_with_send):
     def handle_read(self):
         try:
-            data = self.recv(1024)
+            data = self.recv(64)
             if data:
+
                 if str(data.decode()) == "What your state?":
                     self.send(EventManager.PowerSourceStatus.encode())
                     EventManager.ResetUDP()
-
                 else:
+                    print(data.decode())
                     if (data.decode().find("Task:") != -1):
                         if  EventManager.CurrentTaskId == 0:
                             task = data.decode().split(":",1)[1]
                             EventManager.CurrentTaskId = int(task)
+                            EventManager.Progress = 0
                             reply = 'Beginning Task: ' + task
                             self.send(reply.encode())
                         else:
-                            reply = 'Already busy with task: ' + str(EventManager.CurrentTaskId)
+                            reply = 'Already busy with task: ' + str(EventManager.CurrentTaskId) \
+                                    + ' current progress: ' + str(EventManager.Progress)
                             self.send(reply.encode())
 
                         EventManager.ResetUDP()

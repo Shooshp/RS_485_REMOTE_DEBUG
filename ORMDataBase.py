@@ -67,16 +67,19 @@ class power_source_measurement(MySQLModel):
 
 class power_source_settings(MySQLModel):
     power_source_settings_id = IntegerField(primary_key=True, null=False, unique=True)
+
     power_source_setting_uuid = ForeignKeyField(
         devices_on_tester,
         db_column='power_source_setting_uuid',
         to_field='devices_on_tester_uuid',
         related_name='uuid')
+
     power_source_settings_address = ForeignKeyField(
         devices_on_tester,
         db_column='power_source_settings_address',
         to_field='devices_on_tester_address',
         related_name='address')
+
     power_source_settings_voltage = DecimalField(max_digits=6, decimal_places=4)
     power_source_settings_current = DecimalField(max_digits=6, decimal_places=4)
     power_source_settings_power = DecimalField(max_digits=6, decimal_places=4)
@@ -92,18 +95,17 @@ class power_source_task_list(MySQLModel):
 
 class power_source_current_tasks(MySQLModel):
     power_source_current_task_id = IntegerField(primary_key=True, null=False, unique=True)
+
     power_source_current_task_device_uuid = ForeignKeyField(
         devices_on_tester,
         db_column='power_source_current_task_device_uuid',
-        to_field='devices_on_tester_uuid',
-        related_name='current_task_uuid')
+        to_field='devices_on_tester_uuid')
+
     power_source_current_task_name = ForeignKeyField(
         power_source_task_list,
         db_column='power_source_current_task_name',
-        to_field='power_source_task_name',
-        related_name = 'task_name')
+        to_field='power_source_task_name')
+
     power_source_current_task_argument = DecimalField(max_digits=6, decimal_places=4)
     power_source_current_task_completed = BooleanField()
     power_source_current_task_begin_at = DateTimeField()
-
-

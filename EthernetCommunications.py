@@ -1,7 +1,7 @@
 import asyncore
 import socket
 import threading
-from  ORMDataBase import power_source_current_tasks
+from  ORMDataBase import CurrentTasks
 
 
 class ReadHandler(asyncore.dispatcher_with_send):
@@ -9,31 +9,18 @@ class ReadHandler(asyncore.dispatcher_with_send):
         try:
             data = self.recv(64)
             if data:
-
                 if str(data.decode()) == "What your state?":
                     self.send(EventManager.PowerSourceStatus.encode())
                     EventManager.ResetUDP()
                 else:
-                    print(data.decode())
                     if (data.decode().find("Task:") != -1):
-                        if  EventManager.CurrentTaskId == 0:
-                            task = data.decode().split(":",1)[1]
-                            EventManager.CurrentTaskId = int(task)
-                            EventManager.Progress = 0
-                            reply = 'Beginning Task: ' + task
-                            self.send(reply.encode())
-                        else:
-                            reply = 'Already busy with task: ' + str(EventManager.CurrentTaskId) \
-                                    + ' current progress: ' + str(EventManager.Progress)
-                            self.send(reply.encode())
-
+                        self.send(EventManager.TaskHandler(data))
                         EventManager.ResetUDP()
                     else:
-                        reply = 'Unknown command!'
-                        self.send(reply.encode())
+                        self.send('Unknown command!'.encode())
 
-        except Exception:
-            print(Exception.args)
+        except socket.error:
+            print('socket.error - ' + socket.error.args)
 
 
 class ListenerServer(threading.Thread, asyncore.dispatcher):
@@ -94,19 +81,44 @@ class EventManager:
     UDPCallCounter = 0
 
     PowerSourceStatus = "Idle"
+
     CurrentTaskId = 0
-    TaskArgument = 0
-    Progress = 0
+    CurrentTaskName = ''
+    CurrentTaskUUID = 0
+    CurrentTaskArgument = 0
+    CurrentTaskProgress = 0
 
     @staticmethod
     def ResetUDP():
         EventManager.UDPCallCounter = 5
 
     @staticmethod
+    def TaskHandler(task):
+        if EventManager.CurrentTaskId == 0:
+            EventManager.CurrentTaskId = int(task.decode().split(":",1)[1])
+            Task = CurrentTasks.get(CurrentTasks.id == EventManager.CurrentTaskId, CurrentTasks.IsCompleted == False)
+            EventManager.CurrentTaskName = Task.Name.Name
+            EventManager.CurrentTaskUUID = Task.UUID.UUID
+            EventManager.CurrentTaskArgument = float(Task.Value)
+            return ('Beginning Task: ' + str(EventManager.CurrentTaskId)).encode()
+        else:
+            return ('Already busy with task: ' + str(EventManager.CurrentTaskId)
+                    + ' current progress: ' + str(EventManager.CurrentTaskProgress)).encode()
+
+
+    @staticmethod
     def TaskCompleted(id):
-        power_source_current_tasks.update(power_source_current_task_completed = True).\
-            where(power_source_current_tasks.power_source_current_task_id == id)
+        print('Task ', id,  ' Completed!')
+        CurrentTasks.update(IsCompleted = True).where(CurrentTasks.id == id).execute()
         EventManager.CurrentTaskId = 0
-        EventManager.TaskArgument = 0
+        EventManager.CurrentTaskUUID = 0
+        EventManager.CurrentTaskArgument = 0
+        EventManager.CurrentTaskProgress = 0
         EventManager.PowerSourceStatus = "Idle"
+
+
+class ProgressUpdater(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+
 

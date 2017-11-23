@@ -3,7 +3,7 @@ from enum import IntEnum
 from AVR import Atmega16RegisterMap as BitMap, RegistersAndObjects
 from AVR.ConnectedDevices.MCP4822 import MCP4822 as DAC
 from HostController import HostController, DevicePrefixes
-from ORMDataBase import power_source_calibration, power_source_measurement, power_source_settings
+from ORMDataBase import Calibration, Measurement, Settings
 
 
 class PowerSourceCommands(IntEnum):
@@ -89,8 +89,8 @@ class PowerSource(HostController):
         self.GPIOD.DDR_REG.set(1 << BitMap.PIND.PIND7)
         self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
 
-        calibration_entries = power_source_calibration.select().\
-            where(power_source_calibration.power_source_calibration_uuid == self.DEVICE_ID.hex()).count()
+        calibration_entries = Calibration.select().\
+            where(Calibration.UUID == self.DEVICE_ID.hex()).count()
 
         self.isCalibrated = False
         if  calibration_entries == 5120:
@@ -101,20 +101,21 @@ class PowerSource(HostController):
         self.POWER = 0
         self.IS_ON = False
 
-        power_source_settings.get_or_create(
-            power_source_setting_uuid=self.DEVICE_ID.hex(),
-            power_source_settings_address=self.ADDRESS)
+        Settings.get_or_create(
+            UUID=self.DEVICE_ID.hex(),
+            Address=self.ADDRESS)
 
         self.update_settings()
+        # self.get_zero_error()
 
     def update_settings(self):
-        query =  power_source_settings.update(
-            power_source_settings_voltage=self.VOLTAGE,
-            power_source_settings_current=self.CURRENT,
-            power_source_settings_power=self.POWER,
-            power_source_settings_calibration=self.isCalibrated,
-            power_source_settings_on_off=self.IS_ON
-        ).where(power_source_settings.power_source_setting_uuid == self.DEVICE_ID.hex())
+        query =  Settings.update(
+            SetVoltage=self.VOLTAGE,
+            SetCurrent=self.CURRENT,
+            SetPower=self.POWER,
+            IsCalibrated=self.isCalibrated,
+            IsOn=self.IS_ON
+        ).where(Settings.UUID == self.DEVICE_ID.hex())
         query.execute()
 
     def register_write(self, address, value):
@@ -139,7 +140,7 @@ class PowerSource(HostController):
         self.write()
 
     def calibration(self):
-        power_source_calibration.clean_calibration(self.DEVICE_ID)
+        Calibration.clean_calibration(self.DEVICE_ID)
 
         results = []
         start = time.time()
@@ -163,10 +164,10 @@ class PowerSource(HostController):
             results.append((float(value/2), float(polynomial(value))))
 
         for i in range(0, 5120):
-            power_source_calibration.insert(
-                power_source_calibration_uuid = self.DEVICE_ID.hex(),
-                voltage_set = "%.4f" % results[i][0],
-                voltage_get = "%.4f" % results[i][1]).execute()
+            Calibration.insert(
+                UUID = self.DEVICE_ID.hex(),
+                VoltageSet = "%.4f" % results[i][0],
+                VoltageGet = "%.4f" % results[i][1]).execute()
 
         self.isCalibrated = True
         self.update_settings()
@@ -175,24 +176,24 @@ class PowerSource(HostController):
         x = np.arange(0, 2.560, 0.0005)
         y = np.array([])
 
-        for value in  power_source_calibration.select().where(
-            power_source_calibration.power_source_calibration_uuid == self.DEVICE_ID.hex()).order_by(
-            power_source_calibration.voltage_set.asc()
+        for value in  Calibration.select().where(
+            Calibration.UUID == self.DEVICE_ID.hex()).order_by(
+            Calibration.VoltageSet.asc()
         ):
-            temp = float(value.voltage_get)
+            temp = float(value.VoltageSet)
             y = np.append(y,temp)
 
         calibration_func = np.polyfit(x, y, 1)
         self.ZERO_ERROR = calibration_func[1]
 
     def measure(self, chanel, division_coefficient):
-        query = power_source_calibration.get_approximate_value_list(
+        query = Calibration.get_approximate_value_list(
             value=self.ADC.get_voltage(chanel=chanel, iterations=5),
             device_uuid=self.DEVICE_ID.hex())
 
         result = []
         for value in query:
-            result.append(value.voltage_set)
+            result.append(value.VoltageSet)
 
         return("%.4f" % ((sum(result)/len(result)) * division_coefficient))
 
@@ -209,10 +210,10 @@ class PowerSource(HostController):
         return temperature
 
     def write_status_to_db(self):
-        power_source_measurement.insert(
-            power_source_measurement_uuid = self.DEVICE_ID.hex(),
-            measurement_voltage = self.measure_voltage(),
-            measurement_current = self.measure_current()
+        Measurement.insert(
+            UUID = self.DEVICE_ID.hex(),
+            Voltage = self.measure_voltage(),
+            Current = self.measure_current()
         ).execute()
 
     def set_voltage(self, voltage):
@@ -224,15 +225,26 @@ class PowerSource(HostController):
         self.turn_on()
         time.sleep(0.3)
 
-        while ((self.VOLTAGE+self.ZERO_ERROR) - float(self.measure_voltage())) > 0.005:
-            value += 0.004
-            self.DAC.set_voltage(chanel=0, data=value)
-            time.sleep(0.1)
+        IsNotSet = True
 
-        while ((self.VOLTAGE+self.ZERO_ERROR) - float(self.measure_voltage())) > 0.001:
-            value += 0.001
-            self.DAC.set_voltage(chanel=0, data=value)
-            time.sleep(0.1)
+        InitialDifference = ((self.VOLTAGE+self.ZERO_ERROR) - float(self.measure_voltage()))
+
+        while(IsNotSet):
+            Difference = ((self.VOLTAGE) - float(self.measure_voltage()))
+
+            print(str(100*(InitialDifference-Difference)))
+            if Difference > 0.005:
+                value += 0.004
+                self.DAC.set_voltage(chanel=0, data=value)
+                time.sleep(0.1)
+            else:
+                if  Difference > 0.001:
+                    value += 0.001
+                    self.DAC.set_voltage(chanel=0, data=value)
+                    time.sleep(0.1)
+                else:
+                    IsNotSet = False
+
 
     def set_current(self, current):
         self.CURRENT = current

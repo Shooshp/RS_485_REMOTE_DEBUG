@@ -1,6 +1,6 @@
 import threading
 import time
-from ORMDataBase import power_source_settings, power_source_current_tasks
+from ORMDataBase import Settings, CurrentTasks, Calibration
 from PowerSourceControl import PowerSource
 from SerialCommunications import SerialCommunicator
 from EthernetCommunications import ListenerServer, EventManager, UDPBroadcaster
@@ -11,8 +11,8 @@ current_power_source_list = []
 
 
 def initialization():
-    power_source_current_tasks.truncate_table()  # Clear Task Table
-    power_source_settings.truncate_table()  # Clear Settings Table
+    CurrentTasks.truncate_table()  # Clear Task Table
+    Settings.truncate_table()  # Clear Settings Table
     r_s485 = SerialCommunicator()  # Initialize RS-485 communicator
     host_list = r_s485.chain_scan()  # Get all connected hosts with their respective types
 
@@ -26,42 +26,41 @@ def initialization():
 def main_process():
     while True:
         if EventManager.CurrentTaskId is not 0:
-            task = power_source_current_tasks.get(power_source_current_tasks.power_source_current_task_id==EventManager.CurrentTaskId)
-            task_name = task.power_source_current_task_name.power_source_task_name
-            target_device_uuid = task.power_source_current_task_device_uuid.devices_on_tester_uuid
-            print(task_name)
-            print(target_device_uuid.encode('utf-8').hex())
-            for power_source in current_power_source_list:
-                print(str(power_source.DEVICE_ID))
+            Task = CurrentTasks.get(CurrentTasks.id == EventManager.CurrentTaskId, CurrentTasks.IsCompleted == False)
+            TaskName = Task.Name.Name
+            TaskUUID = Task.UUID.UUID
 
-            if task_name == "SetVoltage":
+            if TaskName == "SetVoltage":
                 for power_source in current_power_source_list:
-                    if power_source.DEVICE_ID.hex() == task.power_source_current_task_device_uuid:
-                        EventManager.PowerSourceStatus = "Setting Voltage to chanel: " + str(power_source.ADDRESS.hex())
-                        power_source.set_voltage(task.power_source_current_task_argument)
+                    if power_source.DEVICE_ID.hex() == TaskUUID:
+                        EventManager.PowerSourceStatus = "Setting Voltage to chanel: " + str(hex(power_source.ADDRESS))
+                        print(EventManager.PowerSourceStatus, 'Value: ', str(Task.Value))
+                        power_source.set_voltage(float(Task.Value))
                         EventManager.TaskCompleted(EventManager.CurrentTaskId)
 
-            if task_name == "SetCurrent":
-                print(str(task.power_source_current_task_device_uuid.devices_on_tester_uuid.hex()))
+            if TaskName == "SetCurrent":
                 for power_source in current_power_source_list:
-                    if power_source.DEVICE_ID.hex() == task.power_source_current_task_device_uuid:
-                        EventManager.PowerSourceStatus = "Setting Current to chanel: " + str(power_source.ADDRESS.hex())
-                        power_source.set_current(task.power_source_current_task_argument)
+                    if power_source.DEVICE_ID.hex() == TaskUUID:
+                        EventManager.PowerSourceStatus = "Setting Current to chanel: " + str(hex(power_source.ADDRESS))
+                        print(EventManager.PowerSourceStatus, 'Value: ', str(Task.Value))
+                        power_source.set_current(float(Task.Value))
                         EventManager.TaskCompleted(EventManager.CurrentTaskId)
 
-            if task_name == "Calibrate":
+            if TaskName == "Calibrate":
                 for power_source in current_power_source_list:
-                    if power_source.DEVICE_ID.hex() == task.power_source_current_task_device_uuid:
-                        EventManager.PowerSourceStatus = "Calibrating chanel: " + str(power_source.ADDRESS.hex())
+                    if power_source.DEVICE_ID.hex() == TaskUUID:
+                        EventManager.PowerSourceStatus = "Calibrating chanel: " + str(hex(power_source.ADDRESS))
+                        print(EventManager.PowerSourceStatus)
                         power_source.DAC.clear()
                         power_source.turn_off()
                         power_source.calibration()
                         EventManager.TaskCompleted(EventManager.CurrentTaskId)
 
-            if task_name == "ShutDown":
+            if TaskName == "ShutDown":
                 for power_source in current_power_source_list:
-                    if power_source.DEVICE_ID.hex() == task.power_source_current_task_device_uuid:
-                        EventManager.PowerSourceStatus = "Shutting Down chanel: " + str(power_source.ADDRESS.hex())
+                    if power_source.DEVICE_ID.hex() == TaskUUID:
+                        EventManager.PowerSourceStatus = "Shutting Down chanel: " + str(hex(power_source.ADDRESS))
+                        print(EventManager.PowerSourceStatus)
                         power_source.turn_off()
                         EventManager.TaskCompleted(EventManager.CurrentTaskId)
 
@@ -82,3 +81,4 @@ if __name__ == "__main__":
     while 1:
         print('Main Loop')
         time.sleep(1)
+

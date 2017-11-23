@@ -2,7 +2,7 @@ import struct
 import time
 import serial
 import uuid
-import ORMDataBase
+from ORMDataBase import DeviceList, Devices
 import PyCRC.CRC16
 import RPi.GPIO as GPIO
 
@@ -105,16 +105,16 @@ class SerialCommunicator(object):
     def chain_scan(self, attempts=5):
         hosts = []
         print('Scanning device chain...')
-        for device in ORMDataBase.device_index.select():
+        for Device in DeviceList.select():
             for address_bit in range(0, 16):
-                address = device.address_prefix | address_bit
-                print('Looking for ', device.device_type_id, ' with address ', hex(address))
+                Address = Device.AddressPrefix | address_bit
+                print('Looking for ', Device.Type, ' with address ', hex(Address))
                 command = 0x0
                 data = struct.pack('>H', 0x0)
                 host_uuid = None
                 status = 0
                 error_counter = 0
-                self.pack_data(address, command, data)
+                self.pack_data(Address, command, data)
 
                 while not status and error_counter < attempts:
                     self.RS_485.write(self.BUFFER_ARRAY)
@@ -122,25 +122,25 @@ class SerialCommunicator(object):
                     callback = self.wait_for_an_answer(size=3)
 
                     if callback:
-                        if self.check_callback_crc(callback, address):
+                        if self.check_callback_crc(callback, Address):
                             status = 1
-                            host_uuid = self.device_uuid_get(address)
+                            host_uuid = self.device_uuid_get(Address)
                             if not host_uuid:
-                                self.device_uuid_set(address)
-                                host_uuid = self.device_uuid_get(address)
+                                self.device_uuid_set(Address)
+                                host_uuid = self.device_uuid_get(Address)
                         else:
                             error_counter += 1
                     else:
                         error_counter += 1
 
                 if status:
-                    print('>>> Get reply from ', device.device_type_id, ' with address ', hex(address))
-                    ORMDataBase.devices_on_tester.get_or_create(
-                        devices_on_tester_uuid=host_uuid.hex(),
-                        devices_on_tester_type=device.device_type_id,
-                        devices_on_tester_address=address
+                    print('>>> Get reply from ', Device.Type, ' with address ', hex(Address))
+                    Devices.get_or_create(
+                        UUID=host_uuid.hex(),
+                        Type=Device.Type,
+                        Address=Address
                     )
-                    hosts.append([device.device_type_id, address, host_uuid.hex()])
+                    hosts.append([Device.Type, Address, host_uuid.hex()])
 
         print(str(len(hosts)) + ' host was found!')
         return hosts

@@ -13,99 +13,121 @@ class MySQLModel(peewee.Model):
         database = db
 
 
-class device_index(MySQLModel):
-    device_type_id = CharField(64, primary_key=True, null=False, unique=True)
-    address_prefix = IntegerField(null=False, unique=True)
+class DeviceList(MySQLModel):
+    Type = CharField(64, db_column='device_type_id', primary_key=True, null=False, unique=True)
+    AddressPrefix = IntegerField(db_column='address_prefix', null=False, unique=True)
+
+    class Meta:
+        db_table = 'device_index'
 
 
-class devices_on_tester(MySQLModel):
-    devices_on_tester_uuid = UUIDField(primary_key=True, null=False, unique=True)
-    devices_on_tester_type = ForeignKeyField(
-        device_index,
-        db_column='devices_on_tester_type',
-        to_field='device_type_id')
-    devices_on_tester_add_at = DateTimeField()
-    devices_on_tester_address = IntegerField(null=False, unique=True)
+class Devices(MySQLModel):
+    UUID = CharField(40, db_column='devices_on_tester_uuid', primary_key=True, null=False, unique=True)
+    Type = ForeignKeyField(
+        DeviceList,
+        db_column = 'devices_on_tester_type',
+        to_field = DeviceList.Type)
+    DateAdd = DateTimeField(db_column='devices_on_tester_add_at')
+    Address = IntegerField(db_column='devices_on_tester_address', null=False, unique=True)
+
+    class Meta:
+        db_table = 'devices_on_tester'
 
 
-class power_source_calibration(MySQLModel):
-    power_source_calibration_id = IntegerField(primary_key=True, null=False, unique=True)
-    power_source_calibration_uuid = ForeignKeyField(
-        devices_on_tester,
+class Calibration(MySQLModel):
+    id = IntegerField(db_column='power_source_calibration_id', primary_key=True, null=False, unique=True)
+    UUID = ForeignKeyField(
+        Devices,
         db_column='power_source_calibration_uuid',
-        to_field='devices_on_tester_uuid')
-    voltage_set = DecimalField(max_digits=6, decimal_places=4)
-    voltage_get = DecimalField(max_digits=6, decimal_places=4)
+        to_field=Devices.UUID)
+    VoltageSet = DecimalField(db_column='voltage_set', max_digits=6, decimal_places=4)
+    VoltageGet = DecimalField(db_column='voltage_get', max_digits=6, decimal_places=4)
+
+    class Meta:
+        db_table = 'power_source_calibration'
+
 
     @staticmethod
     def clean_calibration(device_uuid):
-        power_source_calibration.delete().where(
-            power_source_calibration.power_source_calibration_uuid == device_uuid).execute()
+        Calibration.delete().where(
+            Calibration.UUID == device_uuid).execute()
 
     @staticmethod
     def get_approximate_value_list(value, device_uuid):
-        query = power_source_calibration.select(power_source_calibration.voltage_set).where(
-            power_source_calibration.power_source_calibration_uuid == device_uuid and
-            ((power_source_calibration.voltage_get > value - 0.005) &
-             (power_source_calibration.voltage_get < value + 0.005))).order_by(
-            power_source_calibration.voltage_get.asc()). \
+        query = Calibration.select(Calibration.VoltageSet).where(
+            Calibration.UUID == device_uuid and
+            ((Calibration.VoltageGet > value - 0.005) &
+             (Calibration.VoltageGet < value + 0.005))).order_by(
+            Calibration.VoltageGet.asc()). \
             limit(20).execute()
         return query
 
 
-class power_source_measurement(MySQLModel):
-    power_source_measurement_id = IntegerField(primary_key = True, null  = False, unique = True)
-    power_source_measurement_uuid = ForeignKeyField(
-        devices_on_tester,
+class Measurement(MySQLModel):
+    id = IntegerField(db_column='power_source_measurement_id', primary_key = True, null  = False, unique = True)
+    UUID = ForeignKeyField(
+        Devices,
         db_column='power_source_measurement_uuid',
-        to_field='devices_on_tester_uuid')
-    measurement_voltage = DecimalField(max_digits=6, decimal_places=4)
-    measurement_current = DecimalField(max_digits=6, decimal_places=4)
-    measurement_temperature = DecimalField(max_digits=6, decimal_places=4)
-    measured_at = DateTimeField()
+        to_field=Devices.UUID)
+    Voltage = DecimalField(db_column='measurement_voltage', max_digits=6, decimal_places=4)
+    Current = DecimalField(db_column='measurement_current', max_digits=6, decimal_places=4)
+    Temperature = DecimalField(db_column='measurement_temperature', max_digits=6, decimal_places=4)
+    Date = DateTimeField(db_column='measured_at')
+
+    class Meta:
+        db_table = 'power_source_measurement'
 
 
-class power_source_settings(MySQLModel):
-    power_source_settings_id = IntegerField(primary_key=True, null=False, unique=True)
-
-    power_source_setting_uuid = ForeignKeyField(
-        devices_on_tester,
+class Settings(MySQLModel):
+    id = IntegerField(db_column='power_source_settings_id', primary_key=True, null=False, unique=True)
+    UUID = ForeignKeyField(
+        Devices,
         db_column='power_source_setting_uuid',
-        to_field='devices_on_tester_uuid',
-        related_name='uuid')
+        to_field=Devices.UUID,
+        related_name='SettingsUUID')
 
-    power_source_settings_address = ForeignKeyField(
-        devices_on_tester,
+    Address = ForeignKeyField(
+        Devices,
         db_column='power_source_settings_address',
-        to_field='devices_on_tester_address',
-        related_name='address')
+        to_field=Devices.Address,
+        related_name='SettingsAddress')
 
-    power_source_settings_voltage = DecimalField(max_digits=6, decimal_places=4)
-    power_source_settings_current = DecimalField(max_digits=6, decimal_places=4)
-    power_source_settings_power = DecimalField(max_digits=6, decimal_places=4)
-    power_source_settings_calibration = BooleanField()
-    power_source_settings_on_off = BooleanField()
+    SetVoltage = DecimalField(db_column='power_source_settings_voltage', max_digits=6, decimal_places=4)
+    SetCurrent = DecimalField(db_column='power_source_settings_current', max_digits=6, decimal_places=4)
+    SetPower = DecimalField(db_column='power_source_settings_power', max_digits=6, decimal_places=4)
+    IsCalibrated = BooleanField(db_column='power_source_settings_calibration')
+    IsOn = BooleanField(db_column='power_source_settings_on_off')
 
-
-
-class power_source_task_list(MySQLModel):
-    power_source_task_list_id = IntegerField(primary_key=True, null=False, unique=True)
-    power_source_task_name = CharField(45, null=False)
+    class Meta:
+        db_table = 'power_source_settings'
 
 
-class power_source_current_tasks(MySQLModel):
-    power_source_current_task_id = IntegerField(primary_key=True, null=False, unique=True)
+class TaskList(MySQLModel):
+    id = IntegerField(db_column='power_source_task_list_id', primary_key=True, null=False, unique=True)
+    Name = CharField(45, db_column='power_source_task_name', null=False)
 
-    power_source_current_task_device_uuid = ForeignKeyField(
-        devices_on_tester,
+    class Meta:
+        db_table = 'power_source_task_list'
+
+
+class CurrentTasks(MySQLModel):
+    id = IntegerField(db_column='power_source_current_task_id', primary_key=True, null=False, unique=True)
+
+    UUID = ForeignKeyField(
+        Devices,
         db_column='power_source_current_task_device_uuid',
-        to_field='devices_on_tester_uuid')
+        to_field=Devices.UUID,
+        related_name='CurrentTaskUUID')
 
-    power_source_current_task_name = ForeignKeyField(
-        power_source_task_list,
+    Name = ForeignKeyField(
+        TaskList,
         db_column='power_source_current_task_name',
-        to_field='power_source_task_name')
+        to_field=TaskList.Name,
+        related_name = 'CurrentTaskName')
 
-    power_source_current_task_argument = DecimalField(max_digits=6, decimal_places=4)
-    power_source_current_task_completed = BooleanField()
-    power_source_current_task_begin_at = DateTimeField()
+    Value = DecimalField(db_column='power_source_current_task_argument', max_digits=6, decimal_places=4)
+    IsCompleted = BooleanField(db_column='power_source_current_task_completed')
+    BeginAt = DateTimeField(db_column='power_source_current_task_begin_at')
+
+    class Meta:
+        db_table = 'power_source_current_tasks'

@@ -86,8 +86,18 @@ class PowerSource(HostController):
             adc_gpio=self.GPIOA,
             bitmap=BitMap)
 
+        # onof controll
         self.GPIOD.DDR_REG.set(1 << BitMap.PIND.PIND7)
         self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
+
+        # manual protection
+        self.GPIOC.DDR_REG.set(1 << BitMap.PINC.PINC7)
+        self.GPIOC.PORT_REG.clear(1 << BitMap.PINC.PINC7)
+
+        # reset protection
+        self.GPIOD.DDR_REG.set(1 << BitMap.PIND.PIND6)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND6)
+
 
         calibration_entries = Calibration.select().\
             where(Calibration.UUID == self.DEVICE_ID.hex()).count()
@@ -227,18 +237,17 @@ class PowerSource(HostController):
 
         IsNotSet = True
 
-        InitialDifference = ((self.VOLTAGE+self.ZERO_ERROR) - float(self.measure_voltage()))
 
         while(IsNotSet):
             Difference = ((self.VOLTAGE) - float(self.measure_voltage()))
 
-            print(str(100*(InitialDifference-Difference)))
-            if Difference > 0.005:
+            print(Difference)
+            if Difference > 0.015:
                 value += 0.004
                 self.DAC.set_voltage(chanel=0, data=value)
                 time.sleep(0.1)
             else:
-                if  Difference > 0.001:
+                if  Difference > 0.01:
                     value += 0.001
                     self.DAC.set_voltage(chanel=0, data=value)
                     time.sleep(0.1)
@@ -252,12 +261,17 @@ class PowerSource(HostController):
         value = self.CURRENT * 1.3635
         self.DAC.set_voltage(chanel=1, data=value)
 
+    def reset_protection(self):
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND6)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND6)
+
     def turn_off(self):
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
         self.IS_ON = False
         self.update_settings()
-        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND7)
 
     def turn_on(self):
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND7)
+        self.reset_protection()
         self.IS_ON = True
         self.update_settings()
-        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND7)

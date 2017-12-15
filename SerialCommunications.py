@@ -149,7 +149,7 @@ class SerialCommunicator(object):
         GPIO.output(self.EN_TX_PIN, 0)
         replay_buffer = self.RS_485.read(size=size)
         GPIO.output(self.EN_TX_PIN, 1)
-        self.usleep(800)
+        self.usleep(1000)
         return replay_buffer
 
     def delay_calculate(self):

@@ -20,8 +20,12 @@ def initialization():
         if host[0] == 'PowerSource':
             current_power_source_list.append(PowerSource((host[1] & 0xF), r_s485))
 
-    print(host_list)
+    for powersource in current_power_source_list:
+        if powersource.isCalibrated is not True:
+            print('Calibrating :' + str(powersource.ADDRESS))
+            powersource.calibration()
 
+    print(host_list)
 
 def main_process():
     while True:
@@ -62,6 +66,14 @@ def main_process():
                         EventManager.PowerSourceStatus = "Shutting Down chanel: " + str(hex(power_source.ADDRESS))
                         print(EventManager.PowerSourceStatus)
                         power_source.turn_off()
+                        EventManager.TaskCompleted(EventManager.CurrentTaskId)
+
+            if TaskName == "TurnOn":
+                for power_source in current_power_source_list:
+                    if power_source.DEVICE_ID.hex() == TaskUUID:
+                        EventManager.PowerSourceStatus = "Turning on chanel: " + str(hex(power_source.ADDRESS))
+                        print(EventManager.PowerSourceStatus)
+                        power_source.turn_on()
                         EventManager.TaskCompleted(EventManager.CurrentTaskId)
 
         for power_source in current_power_source_list:

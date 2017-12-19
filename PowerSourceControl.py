@@ -98,6 +98,10 @@ class PowerSource(HostController):
         self.GPIOD.DDR_REG.set(1 << BitMap.PIND.PIND6)
         self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND6)
 
+        # beeper
+        self.GPIOD.DDR_REG.set(1 << BitMap.PIND.PIND5)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+
 
         calibration_entries = Calibration.select().\
             where(Calibration.UUID == self.DEVICE_ID.hex()).count()
@@ -116,6 +120,7 @@ class PowerSource(HostController):
             Address=self.ADDRESS)
 
         self.update_settings()
+        self.beep()
         # self.get_zero_error()
 
     def update_settings(self):
@@ -227,32 +232,53 @@ class PowerSource(HostController):
         ).execute()
 
     def set_voltage(self, voltage):
+        if voltage > 20:
+            self.VOLTAGE = 20
+        if voltage < 0:
+            self.VOLTAGE = 0
+
         self.VOLTAGE = voltage
         self.update_settings()
+
+        self.turn_off()
+        time.sleep(0.3)
+        kill_time = time.time()
+        while (((time.time() - kill_time) < 20) and (float(self.measure_voltage()) > float(self.VOLTAGE) * 0.1)):
+            time.sleep(0.01)
+
+
         self.DAC.set_voltage(chanel=0, data=0)
-        value = ((self.VOLTAGE - 0.1) / 4.97)
-        self.DAC.set_voltage(chanel=0, data=value)
-        self.turn_on()
+        time.sleep(0.3)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND7)
         time.sleep(0.3)
 
-        IsNotSet = True
+        steps = []
 
+        start_set_procedure = time.time()
 
-        while(IsNotSet):
-            Difference = ((self.VOLTAGE) - float(self.measure_voltage()))
+        while(((time.time() - start_set_procedure) < 20) and ((float(self.VOLTAGE) - float(self.measure_voltage())) > 0.04)):
+            Difference = round((float(self.VOLTAGE) - float( self.measure_voltage())), 3)
+            print('Dif: ', Difference)
 
-            print(Difference)
-            if Difference > 0.015:
-                value += 0.004
+            steps.clear()
+
+            for step in range(1, 5):
+                steps.append(round(float(self.VOLTAGE) - Difference + (Difference * (step * 0.2)), 3))
+
+            for step in steps:
+                print('Step ', step)
+                value = step / 4.97
                 self.DAC.set_voltage(chanel=0, data=value)
-                time.sleep(0.1)
-            else:
-                if  Difference > 0.01:
-                    value += 0.001
-                    self.DAC.set_voltage(chanel=0, data=value)
-                    time.sleep(0.1)
-                else:
-                    IsNotSet = False
+                intermediate_voltage =  self.measure_voltage()
+
+                start = time.time()
+                while (((time.time() - start) < 2) and ((float(intermediate_voltage) - float(self.measure_voltage())) > 0.04)):
+                    intermediate_voltage = self.measure_voltage()
+                    print('Time: ', time.time() - start)
+                    print('Set step ', step, ' Voltage ', intermediate_voltage)
+
+        self.turn_on()
+
 
 
     def set_current(self, current):
@@ -263,6 +289,7 @@ class PowerSource(HostController):
 
     def reset_protection(self):
         self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND6)
+        time.sleep(0.1)
         self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND6)
 
     def turn_off(self):
@@ -272,6 +299,43 @@ class PowerSource(HostController):
 
     def turn_on(self):
         self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND7)
+        time.sleep(0.1)
         self.reset_protection()
         self.IS_ON = True
         self.update_settings()
+        self.advanced_beep()
+
+    def beep(self):
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+
+    def advanced_beep(self):
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)
+
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)
+
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)
+
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)
+
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
+        time.sleep(0.3)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+        time.sleep(0.2)
+
+        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)
+        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+        time.sleep(0.1)

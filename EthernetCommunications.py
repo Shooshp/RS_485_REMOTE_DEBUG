@@ -1,7 +1,7 @@
 import asyncore
 import socket
 import threading
-from  ORMDataBase import CurrentTasks
+from ORMDataBase import CurrentTasks
 
 
 class ReadHandler(asyncore.dispatcher_with_send):
@@ -11,16 +11,16 @@ class ReadHandler(asyncore.dispatcher_with_send):
             if data:
                 if str(data.decode()) == "What your state?":
                     self.send(EventManager.PowerSourceStatus.encode())
-                    EventManager.ResetUDP()
+                    EventManager.resetUDP()
                 else:
-                    if (data.decode().find("Task:") != -1):
-                        self.send(EventManager.TaskHandler(data))
-                        EventManager.ResetUDP()
+                    if data.decode().find("Task:") != -1:
+                        self.send(EventManager.task_handler(data))
+                        EventManager.resetUDP()
                     else:
                         self.send('Unknown command!'.encode())
 
         except socket.error:
-            print('socket.error - ' + socket.error.args)
+            print('socket.error - ' + str(socket.error.args))
 
 
 class ListenerServer(threading.Thread, asyncore.dispatcher):
@@ -45,7 +45,7 @@ class ListenerServer(threading.Thread, asyncore.dispatcher):
         accept = self.accept()
         if accept is not None:
             connected_socket, address = accept
-            EventManager.ResetUDP()
+            EventManager.resetUDP()
             print('>>> Connected with ' + address[0] + ':' + str(address[1]))
             ReadHandler(connected_socket)
 
@@ -53,28 +53,27 @@ class ListenerServer(threading.Thread, asyncore.dispatcher):
 class UDPBroadcaster(threading.Thread):
     def __init__(self, port):
         threading.Thread.__init__(self)
+        self.UDPSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.event = threading.Event()
         self.daemon = True
-        EventManager.ResetUDP()
+        EventManager.resetUDP()
         self.port = port
         self.data = "Hello!"
         self.start()
 
     def run(self):
-        self.UDPSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.UDPSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        while True:
+            while EventManager.UDPCallCounter > 0:
+                EventManager.UDPCallCounter -= 1
+                self.event.wait(1)
 
-        while EventManager.UDPCallCounter > 0:
-            EventManager.UDPCallCounter -= 1
-            self.event.wait(1)
+            for time in range(0, 5):
+                self.UDPSocket.sendto(bytes(self.data.encode()), ('255.255.255.255', self.port))
 
-        for time in range(0, 5):
-            self.UDPSocket.sendto(bytes(self.data.encode()), ('255.255.255.255',self.port))
-
-        print('UDP message was send!')
-        EventManager.ResetUDP()
-        self.run()
+            print('UDP message was send!')
+            EventManager.resetUDP()
 
 
 class EventManager:
@@ -89,13 +88,13 @@ class EventManager:
     CurrentTaskProgress = 0
 
     @staticmethod
-    def ResetUDP():
+    def resetUDP():
         EventManager.UDPCallCounter = 5
 
     @staticmethod
-    def TaskHandler(task):
+    def task_handler(task):
         if EventManager.CurrentTaskId == 0:
-            EventManager.CurrentTaskId = int(task.decode().split(":",1)[1])
+            EventManager.CurrentTaskId = int(task.decode().split(":", 1)[1])
             Task = CurrentTasks.get(CurrentTasks.id == EventManager.CurrentTaskId, CurrentTasks.IsCompleted == False)
             EventManager.CurrentTaskName = Task.Name.Name
             EventManager.CurrentTaskUUID = Task.UUID.UUID
@@ -105,11 +104,10 @@ class EventManager:
             return ('Already busy with task: ' + str(EventManager.CurrentTaskId)
                     + ' current progress: ' + str(EventManager.CurrentTaskProgress)).encode()
 
-
     @staticmethod
-    def TaskCompleted(id):
-        print('Task ', id,  ' Completed!')
-        CurrentTasks.update(IsCompleted = True).where(CurrentTasks.id == id).execute()
+    def task_completed(task_id):
+        print('Task ', task_id, ' Completed!')
+        CurrentTasks.update(IsCompleted=True).where(CurrentTasks.id == task_id).execute()
         EventManager.CurrentTaskId = 0
         EventManager.CurrentTaskUUID = 0
         EventManager.CurrentTaskArgument = 0
@@ -120,5 +118,3 @@ class EventManager:
 class ProgressUpdater(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
-
-

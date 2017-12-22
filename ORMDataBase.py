@@ -25,8 +25,8 @@ class Devices(MySQLModel):
     UUID = CharField(40, db_column='devices_on_tester_uuid', primary_key=True, null=False, unique=True)
     Type = ForeignKeyField(
         DeviceList,
-        db_column = 'devices_on_tester_type',
-        to_field = DeviceList.Type)
+        db_column='devices_on_tester_type',
+        to_field=DeviceList.Type)
     DateAdd = DateTimeField(db_column='devices_on_tester_add_at')
     Address = IntegerField(db_column='devices_on_tester_address', null=False, unique=True)
 
@@ -42,15 +42,17 @@ class Calibration(MySQLModel):
         to_field=Devices.UUID)
     VoltageSet = DecimalField(db_column='voltage_set', max_digits=6, decimal_places=4)
     VoltageGet = DecimalField(db_column='voltage_get', max_digits=6, decimal_places=4)
+    CalibratedAt = DateTimeField(db_column='calibrated_at')
 
     class Meta:
         db_table = 'power_source_calibration'
 
-
     @staticmethod
     def clean_calibration(device_uuid):
-        Calibration.delete().where(
-            Calibration.UUID == device_uuid).execute()
+        print("Cleaning calibration for: " + device_uuid)
+        q = Calibration.delete().where(Calibration.UUID == device_uuid)
+        result = q.execute()
+        print("Calibration table was cleansed from " + device_uuid + " filth! " + result + " rows was purged." )
 
     @staticmethod
     def get_approximate_value_list(value, device_uuid):
@@ -64,7 +66,7 @@ class Calibration(MySQLModel):
 
 
 class Measurement(MySQLModel):
-    id = IntegerField(db_column='power_source_measurement_id', primary_key = True, null  = False, unique = True)
+    id = IntegerField(db_column='power_source_measurement_id', primary_key=True, null=False, unique=True)
     UUID = ForeignKeyField(
         Devices,
         db_column='power_source_measurement_uuid',
@@ -123,7 +125,7 @@ class CurrentTasks(MySQLModel):
         TaskList,
         db_column='power_source_current_task_name',
         to_field=TaskList.Name,
-        related_name = 'CurrentTaskName')
+        related_name='CurrentTaskName')
 
     Value = DecimalField(db_column='power_source_current_task_argument', max_digits=6, decimal_places=4)
     IsCompleted = BooleanField(db_column='power_source_current_task_completed')

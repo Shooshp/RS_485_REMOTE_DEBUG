@@ -1,5 +1,10 @@
-import struct, time, traceback, numpy as np
+import numpy as np
+import struct
+import time
+import traceback
 from enum import IntEnum
+import MorseParser
+
 from AVR import Atmega16RegisterMap as BitMap, RegistersAndObjects
 from AVR.ConnectedDevices.MCP4822 import MCP4822 as DAC
 from HostController import HostController, DevicePrefixes
@@ -102,12 +107,11 @@ class PowerSource(HostController):
         self.GPIOD.DDR_REG.set(1 << BitMap.PIND.PIND5)
         self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
 
-
-        calibration_entries = Calibration.select().\
+        calibration_entries = Calibration.select(). \
             where(Calibration.UUID == self.DEVICE_ID.hex()).count()
 
         self.isCalibrated = False
-        if  calibration_entries == 5120:
+        if calibration_entries == 5120:
             self.isCalibrated = True
 
         self.VOLTAGE = 0
@@ -124,7 +128,7 @@ class PowerSource(HostController):
         # self.get_zero_error()
 
     def update_settings(self):
-        query =  Settings.update(
+        query = Settings.update(
             SetVoltage=self.VOLTAGE,
             SetCurrent=self.CURRENT,
             SetPower=self.POWER,
@@ -155,7 +159,7 @@ class PowerSource(HostController):
         self.write()
 
     def calibration(self):
-        Calibration.clean_calibration(self.DEVICE_ID)
+        Calibration.clean_calibration(self.DEVICE_ID.hex())
 
         results = []
         start = time.time()
@@ -165,7 +169,7 @@ class PowerSource(HostController):
         for value in x:
             self.DAC.set_voltage(0, value)
             read_voltage = self.ADC.get_voltage(0)
-            results.append((float(value/2), read_voltage))
+            results.append((float(value / 2), read_voltage))
             y = np.append(y, read_voltage)
         end = time.time()
         self.DAC.clear()
@@ -176,13 +180,13 @@ class PowerSource(HostController):
 
         x = np.arange(4.096, 5.120, 0.001)
         for value in x:
-            results.append((float(value/2), float(polynomial(value))))
+            results.append((float(value / 2), float(polynomial(value))))
 
         for i in range(0, 5120):
             Calibration.insert(
-                UUID = self.DEVICE_ID.hex(),
-                VoltageSet = "%.4f" % results[i][0],
-                VoltageGet = "%.4f" % results[i][1]).execute()
+                UUID=self.DEVICE_ID.hex(),
+                VoltageSet="%.4f" % results[i][0],
+                VoltageGet="%.4f" % results[i][1]).execute()
 
         self.isCalibrated = True
         self.update_settings()
@@ -191,12 +195,12 @@ class PowerSource(HostController):
         x = np.arange(0, 2.560, 0.0005)
         y = np.array([])
 
-        for value in  Calibration.select().where(
-            Calibration.UUID == self.DEVICE_ID.hex()).order_by(
+        for value in Calibration.select().where(
+                Calibration.UUID == self.DEVICE_ID.hex()).order_by(
             Calibration.VoltageSet.asc()
         ):
             temp = float(value.VoltageSet)
-            y = np.append(y,temp)
+            y = np.append(y, temp)
 
         calibration_func = np.polyfit(x, y, 1)
         self.ZERO_ERROR = calibration_func[1]
@@ -210,7 +214,7 @@ class PowerSource(HostController):
         for value in query:
             result.append(value.VoltageSet)
 
-        return("%.4f" % ((sum(result)/len(result)) * division_coefficient))
+        return "%.4f" % ((sum(result) / len(result)) * division_coefficient)
 
     def measure_voltage(self):
         voltage = self.measure(chanel=3, division_coefficient=8)
@@ -220,15 +224,15 @@ class PowerSource(HostController):
         current = self.measure(chanel=2, division_coefficient=2)
         return current
 
-    def measure_temperature(self):
-        temperature = self.measure()
-        return temperature
+    # def measure_temperature(self):
+    # temperature = self.measure()
+    # return temperature
 
     def write_status_to_db(self):
         Measurement.insert(
-            UUID = self.DEVICE_ID.hex(),
-            Voltage = self.measure_voltage(),
-            Current = self.measure_current()
+            UUID=self.DEVICE_ID.hex(),
+            Voltage=self.measure_voltage(),
+            Current=self.measure_current()
         ).execute()
 
     def set_voltage(self, voltage):
@@ -243,9 +247,8 @@ class PowerSource(HostController):
         self.turn_off()
         time.sleep(0.3)
         kill_time = time.time()
-        while (((time.time() - kill_time) < 20) and (float(self.measure_voltage()) > float(self.VOLTAGE) * 0.1)):
+        while ((time.time() - kill_time) < 20) and (float(self.measure_voltage()) > float(self.VOLTAGE) * 0.1):
             time.sleep(0.01)
-
 
         self.DAC.set_voltage(chanel=0, data=0)
         time.sleep(0.3)
@@ -256,30 +259,28 @@ class PowerSource(HostController):
 
         start_set_procedure = time.time()
 
-        while(((time.time() - start_set_procedure) < 20) and ((float(self.VOLTAGE) - float(self.measure_voltage())) > 0.04)):
-            Difference = round((float(self.VOLTAGE) - float( self.measure_voltage())), 3)
-            print('Dif: ', Difference)
+        while ((time.time() - start_set_procedure) < 20) and ((float(self.VOLTAGE) - float(self.measure_voltage())) > 0.04):
+            difference = round((float(self.VOLTAGE) - float(self.measure_voltage())), 3)
+            print('Dif: ', difference)
 
             steps.clear()
 
             for step in range(1, 5):
-                steps.append(round(float(self.VOLTAGE) - Difference + (Difference * (step * 0.2)), 3))
+                steps.append(round(float(self.VOLTAGE) - difference + (difference * (step * 0.2)), 3))
 
             for step in steps:
                 print('Step ', step)
                 value = step / 4.97
                 self.DAC.set_voltage(chanel=0, data=value)
-                intermediate_voltage =  self.measure_voltage()
+                intermediate_voltage = self.measure_voltage()
 
                 start = time.time()
-                while (((time.time() - start) < 2) and ((float(intermediate_voltage) - float(self.measure_voltage())) > 0.04)):
+                while ((time.time() - start) < 2) and ((float(intermediate_voltage) - float(self.measure_voltage())) > 0.04):
                     intermediate_voltage = self.measure_voltage()
                     print('Time: ', time.time() - start)
                     print('Set step ', step, ' Voltage ', intermediate_voltage)
 
         self.turn_on()
-
-
 
     def set_current(self, current):
         self.CURRENT = current
@@ -303,39 +304,31 @@ class PowerSource(HostController):
         self.reset_protection()
         self.IS_ON = True
         self.update_settings()
-        self.advanced_beep()
+        self.morse_beep('Online')
 
     def beep(self):
         self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
         self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
 
-    def advanced_beep(self):
-        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
-        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
+    def morse_beep(self, text):
+        result = MorseParser.MorseParser(text)
 
-        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
-        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
+        for char in result:
+            if char == ".":
+                self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
+                time.sleep(0.05)
+                self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+                time.sleep(0.05)
+            if char == "-":
+                self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
+                time.sleep(0.150)
+                self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+                time.sleep(0.05)
 
-        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
-        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
+            if char == " ":
+                self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+                time.sleep(0.150)
 
-        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
-        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
-
-        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
-        time.sleep(0.3)
-        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
-        time.sleep(0.2)
-
-        self.GPIOD.PORT_REG.set(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
-        self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
-        time.sleep(0.1)
+            if char == "_":
+                self.GPIOD.PORT_REG.clear(1 << BitMap.PIND.PIND5)
+                time.sleep(0.35)

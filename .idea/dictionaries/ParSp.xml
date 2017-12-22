@@ -75,6 +75,7 @@
       <w>portb</w>
       <w>portc</w>
       <w>portd</w>
+      <w>powersource</w>
       <w>rwwsb</w>
       <w>rwwsre</w>
       <w>rxcie</w>
